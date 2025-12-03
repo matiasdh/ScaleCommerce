@@ -1,0 +1,22 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: postgres
+  password: postgres_password
+  host: localhost
+  port: 5432
+
+development:
+  <<: *default
+  database: scale_commerce_development
+
+test:
+  <<: *default
+  database: scale_commerce_test
+
+production:
+  <<: *default
+  database: scale_commerce_production
+  username: <%= ENV["SCALE_COMMERCE_DATABASE_USERNAME"] %>
+  password: <%= ENV["SCALE_COMMERCE_DATABASE_PASSWORD"] %>
