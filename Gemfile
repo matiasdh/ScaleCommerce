@@ -59,3 +59,7 @@ group :test do
   gem "shoulda-matchers", "~> 6.0"
   gem "webmock", "~> 3.19"
 end
+
+gem "strong_migrations", "~> 2.5"
+
+gem "money-rails", "~> 1.15"
