@@ -10,9 +10,30 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_09_183020) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_11_172610) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "order_products", force: :cascade do |t|
+    t.bigint "order_id", null: false
+    t.bigint "product_id", null: false
+    t.integer "quantity"
+    t.integer "unit_price_cents"
+    t.string "unit_price_currency"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id", "product_id"], name: "index_order_products_on_order_id_and_product_id", unique: true
+    t.index ["order_id"], name: "index_order_products_on_order_id"
+    t.index ["product_id"], name: "index_order_products_on_product_id"
+  end
+
+  create_table "orders", force: :cascade do |t|
+    t.integer "total_price_cents"
+    t.string "email"
+    t.string "total_price_currency"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "products", force: :cascade do |t|
     t.string "name"
@@ -42,6 +63,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_183020) do
     t.index ["uuid"], name: "index_shopping_baskets_on_uuid", unique: true
   end
 
+  add_foreign_key "order_products", "orders"
+  add_foreign_key "order_products", "products"
   add_foreign_key "shopping_basket_products", "products"
   add_foreign_key "shopping_basket_products", "shopping_baskets"
 end

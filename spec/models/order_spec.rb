@@ -1,0 +1,27 @@
+require 'rails_helper'
+
+RSpec.describe Order, type: :model do
+  subject { build(:order) }
+
+  describe "Associations" do
+    it { should have_many(:order_products).dependent(:destroy) }
+  end
+
+  describe "Validations" do
+    it { should validate_presence_of(:total_price_cents) }
+    it { should validate_presence_of(:email) }
+
+    context "email format" do
+      it { should allow_value("user@example.com").for(:email) }
+      it { should allow_value("name+tag@mail.co.uk").for(:email) }
+
+      it { should_not allow_value("user").for(:email) }
+      it { should_not allow_value("").for(:email) }
+    end
+  end
+
+  describe "Monetize" do
+    it { is_expected.to monetize(:total_price).with_model_currency(:total_price_currency) }
+    it { is_expected.to validate_numericality_of(:total_price).is_greater_than_or_equal_to(0) }
+  end
+end
