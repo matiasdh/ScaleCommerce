@@ -1,6 +1,7 @@
 FactoryBot.define do
   factory :product do
     name { Faker::Commerce.product_name }
+    description { Faker::Lorem.paragraph(sentence_count: 3) }
     currency { "USD" }
     stock { Faker::Number.between(from: 1, to: 100) }
     price_cents { Faker::Number.between(from: 500, to: 5000) }
