@@ -22,14 +22,11 @@ RSpec.describe CreditCard, type: :model do
 
   describe ".create_from_token!" do
     let(:token) { "tok_success" }
-
-    before do
-      allow(PaymentGateway).to receive(:new).and_return(PaymentGateway.new(latency: 0))
-    end
+    let(:payment_gateway) { PaymentGateway.new(latency: 0) }
 
     it "fetches details from the gateway and creates a valid card" do
       expect {
-        described_class.create_from_token! token
+        described_class.create_from_token!(token, payment_gateway: payment_gateway)
       }.to change(CreditCard, :count).by 1
 
       card = CreditCard.last

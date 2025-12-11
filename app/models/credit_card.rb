@@ -7,8 +7,8 @@ class CreditCard < ApplicationRecord
   validates :exp_year, presence: true
   validates :token, presence: true
 
-  def self.create_from_token!(token)
-    gateway_details = PaymentGateway.new.details_for(token)
+  def self.create_from_token!(token, payment_gateway:)
+    gateway_details = payment_gateway.details_for(token)
 
     create!(
       token: gateway_details.token,

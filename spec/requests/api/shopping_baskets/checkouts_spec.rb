@@ -36,29 +36,16 @@ RSpec.describe "Api::V1::ShoppingBaskets::Checkouts", type: :request do
         expect(response).to have_http_status :created
       end
 
-      it "creates the Address" do
-        expect {
-          post endpoint, params: valid_params, headers: headers
-        }.to change(Address, :count).by 1
-      end
-
-      it "creates the CreditCard" do
-        expect {
-          post endpoint, params: valid_params, headers: headers
-        }.to change(CreditCard, :count).by 1
-
-        card = CreditCard.last
-        expect(card.token).to eq "tok_success"
-        expect(card.last4).to eq "4242"
-      end
-
-      it "calls the CheckoutOrderService with the persisted records" do
+      it "calls the CheckoutOrderService with the raw params" do
         expect(ShoppingBaskets::CheckoutOrderService).to receive(:call).with(
           shopping_basket: basket,
           email: "test@example.com",
-          credit_card: an_instance_of(CreditCard),
-          address: an_instance_of(Address)
-        )
+          payment_token: "tok_success",
+          address_params: hash_including(
+            "line_1" => "123 Calle Falsa",
+            "city" => "Montevideo"
+          )
+        ).and_return(created_order)
 
         post endpoint, params: valid_params, headers: headers
       end
