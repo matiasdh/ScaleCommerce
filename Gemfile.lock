@@ -78,6 +78,7 @@ GEM
     base64 (0.3.0)
     benchmark (0.4.1)
     bigdecimal (3.2.2)
+    blueprinter (1.2.1)
     bootsnap (1.18.6)
       msgpack (~> 1.2)
     brakeman (7.0.2)
@@ -180,6 +181,11 @@ GEM
       racc (~> 1.4)
     nokogiri (1.18.10-x86_64-linux-musl)
       racc (~> 1.4)
+    oj (3.16.14)
+      bigdecimal (>= 3.0)
+    pagy (43.2.9)
+      json
+      yaml
     parallel (1.27.0)
     parser (3.3.8.0)
       ast (~> 2.4.1)
@@ -325,6 +331,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    yaml (0.4.0)
     zeitwerk (2.7.3)
 
 PLATFORMS
@@ -338,6 +345,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  blueprinter (~> 1.2)
   bootsnap
   brakeman
   database_cleaner-active_record (~> 2.1)
@@ -346,6 +354,8 @@ DEPENDENCIES
   faker (~> 3.2)
   listen (~> 3.8)
   money-rails (~> 1.15)
+  oj (~> 3.16)
+  pagy (~> 43.2)
   pg (~> 1.6)
   puma (>= 5.0)
   rack-cors
