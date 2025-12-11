@@ -63,3 +63,9 @@ end
 gem "strong_migrations", "~> 2.5"
 
 gem "money-rails", "~> 1.15"
+
+gem "blueprinter", "~> 1.2"
+
+gem "oj", "~> 3.16"
+
+gem "pagy", "~> 43.2"
