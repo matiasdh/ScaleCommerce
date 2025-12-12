@@ -20,7 +20,7 @@ module ShoppingBaskets
         purchasable_items, total_cents = calculate_totals(locked_products_by_id)
 
         # 2. Guard Clause
-        raise EmptyBasketError, "No items available in stock." if purchasable_items.empty?
+        raise EmptyBasketError, "Basket is empty or all items are out of stock." if purchasable_items.empty?
 
         # 3. Process Payment
         process_payment!(total_cents)
