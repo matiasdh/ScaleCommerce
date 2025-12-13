@@ -69,3 +69,5 @@ gem "blueprinter", "~> 1.2"
 gem "oj", "~> 3.16"
 
 gem "pagy", "~> 43.2"
+
+gem "rspec-uuid", "~> 0.6.0"
