@@ -94,7 +94,7 @@ RSpec.describe "Api::Products", type: :request do
         expect(json_response).to match({
           "error" => {
             "code" => 404,
-            "message" => "Couldn't find Product with 'id'=\"not_found_wrong_id\""
+            "messages" => [ "Couldn't find Product with 'id'=\"not_found_wrong_id\"" ]
           }
         })
       end
