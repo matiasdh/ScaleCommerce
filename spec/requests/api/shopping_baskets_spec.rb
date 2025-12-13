@@ -2,7 +2,8 @@ require "rails_helper"
 
 RSpec.describe "Api::ShoppingBaskets", type: :request do
   describe "GET /api/v1/shopping_basket" do
-    subject(:make_request) { get "/api/v1/shopping_basket" }
+    let(:headers) { {} }
+    subject(:make_request) { get "/api/v1/shopping_basket", headers: headers }
 
     context "when the basket is empty" do
       it "returns a successful response" do
@@ -23,14 +24,11 @@ RSpec.describe "Api::ShoppingBaskets", type: :request do
     end
 
     context "when the basket has products" do
-      let(:product) { create(:product, price_cents: 100_00, name: "Gamer Mouse") }
-      let(:basket_with_items) { create(:shopping_basket) }
+      let!(:basket) { create(:shopping_basket, :with_products, products_count: 1) }
+      let(:headers) { { "Authorization" => "Bearer #{basket.uuid}" } }
 
-      before do
-        create(:shopping_basket_product, shopping_basket: basket_with_items, product: product, quantity: 2)
-        # TODO: Use UUID Headers after implementation
-        allow(ShoppingBasket).to receive(:new).and_return(basket_with_items)
-      end
+      let(:basket_item) { basket.shopping_basket_products.first }
+      let(:product)     { basket_item.product }
 
       it "returns the products list" do
         make_request
@@ -41,11 +39,11 @@ RSpec.describe "Api::ShoppingBaskets", type: :request do
 
         item = json_response["products"].first
 
-        expect(item["id"]).to eq(product.id)
-        expect(item["quantity"]).to eq(2)
-        expect(item["name"]).to eq("Gamer Mouse")
+        expect(item["id"]).to eq product.id
+        expect(item["quantity"]).to eq basket_item.quantity
+        expect(item["name"]).to eq product.name
         expect(item["total_price"]).to eq({
-          "cents" => 200_00, # 100_00 * 2
+          "cents" => product.price.cents * basket_item.quantity,
           "currency" => "USD"
         })
       end
@@ -54,8 +52,10 @@ RSpec.describe "Api::ShoppingBaskets", type: :request do
         make_request
         json_response = JSON.parse(response.body)
 
+        expected_total = basket.shopping_basket_products.sum(&:total_price)
+
         expect(json_response["total_price"]).to eq({
-          "cents" => 200_00, # 100_00 * 2
+          "cents" => expected_total.cents,
           "currency" => "USD"
         })
       end
