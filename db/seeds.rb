@@ -11,6 +11,7 @@
 # Create sample products for testing
 puts "🚀 Starting seeding process..."
 
-require_relative 'seeds/products'
+require_relative "seeds/products"
+require_relative "seeds/shopping_baskets"
 
 puts "✨ All seeds loaded successfully!"
