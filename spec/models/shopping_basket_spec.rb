@@ -16,10 +16,11 @@ RSpec.describe ShoppingBasket, type: :model do
       end
 
       context 'when a UUID is provided manually' do
+        let(:provided_uuid) { "019c2f4e-c385-7a57-a59c-b7adb9ffa4c2" }
         it 'does not overwrite the provided UUID' do
-          basket = build :shopping_basket, uuid: "TEST-UUID-V7"
+          basket = build :shopping_basket, uuid: provided_uuid
 
-          expect(basket.uuid).to eq("TEST-UUID-V7")
+          expect(basket.uuid).to eq provided_uuid
         end
       end
     end
@@ -32,6 +33,19 @@ RSpec.describe ShoppingBasket, type: :model do
 
   describe 'validations' do
     it { is_expected.to validate_presence_of(:uuid) }
+  end
+
+  describe 'scope .with_associations' do
+    let!(:basket) { create(:shopping_basket, :with_products) }
+
+    it 'eager loads shopping_basket_products and their nested products' do
+      record = described_class.with_associations.find(basket.id)
+
+      expect(record.association(:shopping_basket_products)).to be_loaded
+      record.shopping_basket_products.each do |shopping_basket_product|
+        expect(shopping_basket_product.association(:product)).to be_loaded
+      end
+    end
   end
 
   describe '#total_price' do
