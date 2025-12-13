@@ -12,7 +12,9 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       resources :products, only: [ :index, :show ]
-      resource :shopping_basket, only: [ :show ]
+      resource :shopping_basket, only: [ :show ] do
+        resources :products, only: [ :create ], controller: "shopping_baskets/shopping_basket_products"
+      end
     end
   end
 
