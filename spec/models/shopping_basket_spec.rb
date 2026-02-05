@@ -56,8 +56,8 @@ RSpec.describe ShoppingBasket, type: :model do
     end
 
     context 'when the basket has products' do
-      let(:product_1) { create(:product, price_cents: 100_00) }
-      let(:product_2) { create(:product, price_cents: 150_00) }
+      let(:product_1) { create(:product, price_cents: 100_00, stock: 10) }
+      let(:product_2) { create(:product, price_cents: 150_00, stock: 5) }
 
       before do
         create(:shopping_basket_product, shopping_basket: subject, product: product_1, quantity: 2)

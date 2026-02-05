@@ -13,7 +13,7 @@ RSpec.describe ShoppingBasketBlueprint do
     end
 
     context "when the basket has products" do
-      let(:product) { create(:product, price_cents: 10_00) }
+      let(:product) { create(:product, price_cents: 10_00, stock: 10) }
 
       before do
         create(:shopping_basket_product, shopping_basket: shopping_basket, product: product, quantity: 2)
