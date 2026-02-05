@@ -3,33 +3,37 @@ module ShoppingBaskets
     class EmptyBasketError < StandardError; end
     class PaymentError < StandardError; end
 
-    def initialize(shopping_basket:, email:, credit_card:, address:)
+    def initialize(shopping_basket:, email:, payment_token:, address_params:, payment_gateway: PaymentGateway.new)
       @shopping_basket = shopping_basket
       @email = email
-      @credit_card = credit_card
-      @address = address
-      @payment_gateway = PaymentGateway.new
+      @payment_token = payment_token
+      @address_params = address_params
+      @payment_gateway = payment_gateway
     end
 
     def call
       ActiveRecord::Base.transaction do
         @shopping_basket.lock!
 
-        # 1. Prepare Data
+        # 1. Create Address and CreditCard
+        @address = Address.create!(@address_params)
+        @credit_card = CreditCard.create_from_token!(@payment_token, payment_gateway: @payment_gateway)
+
+        # 2. Prepare Data
         locked_products_by_id = fetch_locked_products
         purchasable_items, total_cents = calculate_totals(locked_products_by_id)
 
-        # 2. Guard Clause
+        # 3. Guard Clause
         raise EmptyBasketError, "No items available in stock." if purchasable_items.empty?
 
-        # 3. Process Payment
+        # 4. Process Payment
         process_payment!(total_cents)
 
-        # 4. Persist Order
+        # 5. Persist Order
         order = create_order!(total_cents)
         fulfill_items!(order, purchasable_items, locked_products_by_id)
 
-        # 5. Cleanup
+        # 6. Cleanup
         cleanup_basket!
 
         order

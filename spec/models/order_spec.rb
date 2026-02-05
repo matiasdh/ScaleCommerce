@@ -9,6 +9,19 @@ RSpec.describe Order, type: :model do
     it { should have_many(:order_products).dependent(:destroy) }
   end
 
+  describe 'scope .with_associations' do
+    let!(:order) { create(:order, :with_products) }
+
+    it 'eager loads order_products and their nested products' do
+      record = described_class.with_associations.find(order.id)
+
+      expect(record.association(:order_products)).to be_loaded
+      record.order_products.each do |order_product|
+        expect(order_product.association(:product)).to be_loaded
+      end
+    end
+  end
+
   describe "Validations" do
     it { should validate_presence_of(:total_price_cents) }
     it { should validate_presence_of(:email) }
