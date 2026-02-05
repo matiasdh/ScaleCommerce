@@ -2,9 +2,10 @@ module Api
   module V1
     class ProductsController < BaseController
       def index
+        pagy_page = index_params[:page].present? ? index_params[:page].to_i : 1
         @pagy, @records = pagy(
-          Product,
-          page: index_params[:page].to_i,
+          Product.order(id: :asc),
+          page: pagy_page,
         )
         render status: :ok,
           json: PaginationBlueprint.render(

@@ -10,7 +10,11 @@ class ShoppingBasketProduct < ApplicationRecord
 
   validate :stock_availability, if: :quantity_changed?
 
-  delegate :name, :description, :stock_status, to: :product
+  delegate :name, :description, to: :product
+
+  def stock_status
+    product.stock < quantity ? Product::STOCK_STATUS_OUT : Product::STOCK_STATUS_AVAILABLE
+  end
 
   def total_price
     product.price * quantity
