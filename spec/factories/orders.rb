@@ -1,5 +1,8 @@
 FactoryBot.define do
   factory :order do
+    credit_card
+    address
+
     email { Faker::Internet.email }
 
     total_price_cents { Faker::Number.between(from: 10_00, to: 500_00) }
