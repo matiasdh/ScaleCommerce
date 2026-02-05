@@ -2,12 +2,11 @@ require "rails_helper"
 
 RSpec.describe ShoppingBaskets::CheckoutOrderService do
   # Setup data
-  let(:email)       { "test@example.com" }
-  let(:address)     { create(:address) }
+  let(:email)         { "test@example.com" }
+  let(:address_params) { attributes_for(:address) }
   # Default to a successful token for happy paths
-  let(:card_token)  { "tok_success" }
-  let(:credit_card) { create(:credit_card, token: card_token) }
-  let(:basket)      { create(:shopping_basket) }
+  let(:card_token)    { "tok_success" }
+  let(:basket)        { create(:shopping_basket) }
 
   # Integration Strategy:
   # We use the REAL PaymentGateway class with 0 latency.
@@ -19,13 +18,10 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
     described_class.new(
       shopping_basket: basket,
       email: email,
-      credit_card: credit_card,
-      address: address
+      payment_token: card_token,
+      address_params: address_params,
+      payment_gateway: payment_gateway
     )
-  end
-
-  before do
-    allow(PaymentGateway).to receive(:new).and_return(payment_gateway)
   end
 
   describe "#call" do
