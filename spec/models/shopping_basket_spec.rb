@@ -69,4 +69,53 @@ RSpec.describe ShoppingBasket, type: :model do
       end
     end
   end
+
+  describe '#products_last_updated_at' do
+    context 'when the basket is empty' do
+      it 'returns nil' do
+        expect(subject.products_last_updated_at).to be_nil
+      end
+    end
+
+    context 'when the basket has products' do
+      let(:old_time) { Time.zone.parse('2023-01-01 10:00:00') }
+      let(:new_time) { Time.zone.parse('2023-01-01 12:00:00') }
+      let(:product_1) { create(:product, updated_at: old_time) }
+      let(:product_2) { create(:product, updated_at: new_time) }
+
+      before do
+        create(:shopping_basket_product, shopping_basket: subject, product: product_1)
+        create(:shopping_basket_product, shopping_basket: subject, product: product_2)
+      end
+
+      it 'returns the maximum updated_at of the products' do
+        expect(subject.products_last_updated_at.to_i).to eq(new_time.to_i)
+      end
+    end
+  end
+
+  describe 'performance' do
+    describe '#products_last_updated_at' do
+      let(:basket) { create(:shopping_basket) }
+      let(:products) { create_list(:product, 3) }
+
+      before do
+        products.each do |product|
+          create(:shopping_basket_product, shopping_basket: basket, product: product)
+        end
+      end
+
+      it 'avoids N+1 queries by eager loading associations' do
+        shopping_basket_with_associations = described_class.with_associations.find(basket.id)
+
+        expect(shopping_basket_with_associations.association(:shopping_basket_products)).to be_loaded
+
+        shopping_basket_with_associations.shopping_basket_products.each do |sb_product|
+          expect(sb_product.association(:product)).to be_loaded
+        end
+
+        expect(shopping_basket_with_associations.products_last_updated_at).to be_present
+      end
+    end
+  end
 end

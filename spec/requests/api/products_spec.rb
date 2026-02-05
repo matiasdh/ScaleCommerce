@@ -8,13 +8,13 @@ RSpec.describe "Api::Products", type: :request do
     it "delegates serialization to ProductBlueprint and PaginationBlueprint" do
       # We just want to spy on calls, not change behavior
       allow(ProductBlueprint).to receive(:render_as_hash).and_call_original
-      allow(PaginationBlueprint).to receive(:render).and_call_original
+      allow(PaginationBlueprint).to receive(:render_as_hash).and_call_original
 
       get "/api/v1/products", params: { page: 1 }
 
       expect(ProductBlueprint).to have_received(:render_as_hash)
 
-      expect(PaginationBlueprint).to have_received(:render)
+      expect(PaginationBlueprint).to have_received(:render_as_hash)
     end
 
     it "returns HTTP 200 and correct pagination metadata structure" do
