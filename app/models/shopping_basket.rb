@@ -14,6 +14,10 @@ class ShoppingBasket < ApplicationRecord
     shopping_basket_products.sum(Money.new(0), &:total_price)
   end
 
+  def products_last_updated_at
+    shopping_basket_products.map { |p| p.product.updated_at }.max
+  end
+
   private
 
   def set_uuid

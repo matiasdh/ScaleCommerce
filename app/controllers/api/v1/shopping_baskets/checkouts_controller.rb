@@ -13,7 +13,7 @@ module Api
           )
 
           order_with_products = Order.with_associations.find(order.id)
-          render json: OrderBlueprint.render(order_with_products), status: :created
+          render json: OrderBlueprint.render_as_hash(order_with_products), status: :created
         end
 
         def checkout_params
