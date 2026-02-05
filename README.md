@@ -123,6 +123,13 @@ bundle exec rspec
 COVERAGE=true bundle exec rspec
 ```
 
+### Development Caching
+
+```bash
+# Enable/Disable caching in development (Required to test Redis caching behavior)
+bundle exec rails dev:cache
+```
+
 ---
 
 ## ⚖️ Trade-offs & Future Roadmap

@@ -1,5 +1,5 @@
 class ShoppingBasketProduct < ApplicationRecord
-  belongs_to :shopping_basket
+  belongs_to :shopping_basket, touch: true
   belongs_to :product
 
   validates :product_id,
