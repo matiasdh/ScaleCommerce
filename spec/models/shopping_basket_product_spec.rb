@@ -22,7 +22,6 @@ RSpec.describe ShoppingBasketProduct, type: :model do
     # Shoulda Matchers makes this one-liner possible
     it { is_expected.to delegate_method(:name).to(:product) }
     it { is_expected.to delegate_method(:description).to(:product) }
-    it { is_expected.to delegate_method(:stock_status).to(:product) }
   end
 
   describe '#total_price' do
@@ -36,6 +35,37 @@ RSpec.describe ShoppingBasketProduct, type: :model do
     it 'returns zero if quantity is zero (edge case)' do
       subject.quantity = 0
       expect(subject.total_price).to eq 0
+    end
+  end
+
+  describe '#stock_status' do
+    let(:product) { create(:product, stock: 10) }
+    subject!(:basket_item) { create(:shopping_basket_product, product: product, quantity: 5) }
+
+    context "when product has enough stock" do
+      it "returns available status" do
+        expect(basket_item.stock_status).to eq(Product::STOCK_STATUS_AVAILABLE)
+      end
+    end
+
+    context "when product stock drops below requested quantity" do
+      before do
+        product.update!(stock: 2)
+      end
+
+      it "returns out of stock status" do
+        expect(basket_item.reload.stock_status).to eq(Product::STOCK_STATUS_OUT)
+      end
+    end
+
+    context "when product stock matches requested quantity exactly" do
+      before do
+        product.update!(stock: 5)
+      end
+
+      it "returns available status" do
+        expect(basket_item.reload.stock_status).to eq(Product::STOCK_STATUS_AVAILABLE)
+      end
     end
   end
 end
