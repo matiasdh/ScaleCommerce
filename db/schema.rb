@@ -10,9 +10,30 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_11_172610) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_11_200219) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "addresses", force: :cascade do |t|
+    t.string "line_1"
+    t.string "line_2"
+    t.string "city"
+    t.string "state"
+    t.string "zip"
+    t.string "country"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "credit_cards", force: :cascade do |t|
+    t.string "last4"
+    t.string "brand"
+    t.integer "exp_month"
+    t.integer "exp_year"
+    t.string "token"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "order_products", force: :cascade do |t|
     t.bigint "order_id", null: false
@@ -33,6 +54,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_172610) do
     t.string "total_price_currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "address_id", null: false
+    t.bigint "credit_card_id", null: false
+    t.index ["address_id"], name: "index_orders_on_address_id"
+    t.index ["credit_card_id"], name: "index_orders_on_credit_card_id"
   end
 
   create_table "products", force: :cascade do |t|
@@ -65,6 +90,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_172610) do
 
   add_foreign_key "order_products", "orders"
   add_foreign_key "order_products", "products"
+  add_foreign_key "orders", "addresses"
+  add_foreign_key "orders", "credit_cards"
   add_foreign_key "shopping_basket_products", "products"
   add_foreign_key "shopping_basket_products", "shopping_baskets"
 end
