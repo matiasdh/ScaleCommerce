@@ -4,6 +4,8 @@ RSpec.describe Order, type: :model do
   subject { build(:order) }
 
   describe "Associations" do
+    it { should belong_to(:address).dependent(:destroy) }
+    it { should belong_to(:credit_card).dependent(:destroy) }
     it { should have_many(:order_products).dependent(:destroy) }
   end
 

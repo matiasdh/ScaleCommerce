@@ -1,4 +1,7 @@
 class Order < ApplicationRecord
+  belongs_to :address, dependent: :destroy
+  belongs_to :credit_card, dependent: :destroy
+
   has_many :order_products, dependent: :destroy
 
   validates :total_price_cents, presence: true
