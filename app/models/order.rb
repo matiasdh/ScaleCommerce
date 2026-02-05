@@ -3,6 +3,11 @@ class Order < ApplicationRecord
   belongs_to :credit_card, dependent: :destroy
 
   has_many :order_products, dependent: :destroy
+  has_many :products, through: :order_products
+
+  scope :with_associations, -> {
+    includes(order_products: :product)
+  }
 
   validates :total_price_cents, presence: true
   validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
