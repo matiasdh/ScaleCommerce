@@ -11,7 +11,7 @@ module Api
             quantity: product_params[:quantity]
           )
 
-          render json: ShoppingBasketBlueprint.render(updated_basket), status: :created
+          render json: ShoppingBasketBlueprint.render_as_hash(updated_basket), status: :created
         end
 
         private
