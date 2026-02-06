@@ -160,7 +160,8 @@ In the spirit of "Production Mindset," here are the trade-offs made for v1.0 and
 
 ## 📚 API Documentation
 
-See **[docs/API.md](docs/API.md)** for detailed endpoint descriptions and `curl` examples.
+See **[docs/API_v1.md](docs/API_v1.md)** for legacy V1 endpoints.
+See **[docs/API_v2.md](docs/API_v2.md)** for the new WIP V2 API (Keyset Pagination with page numbers - avoids `COUNT(*)` queries).
 
 ### Products
 

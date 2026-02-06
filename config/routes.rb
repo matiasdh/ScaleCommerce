@@ -17,6 +17,10 @@ Rails.application.routes.draw do
         resource :checkout, only: [ :create ], controller: "shopping_baskets/checkouts"
       end
     end
+
+    namespace :v2 do
+      resources :products, only: [ :index, :show ]
+    end
   end
 
   # Health check endpoint
