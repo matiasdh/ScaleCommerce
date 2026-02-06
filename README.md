@@ -63,6 +63,20 @@ Raw credit card numbers are **never stored or processed** by the backend.
 
 ---
 
+## 📊 Load Testing & Benchmarks (v1)
+
+We conducted rigorous load testing to validate our concurrency handling assertions using **k6** against a single node.
+
+- **Objective:** Support 5,000 concurrent users.
+- **Results:**
+  - **Bottleneck Identified:** The Architecture is DB-bound under write concurrency due to Pessimistic Locking.
+  - **Safe Capacity per Node:** ~150 concurrent users.
+  - **At 200 Concurrent Users:** 0% error rate, but high latency (p95 ~9.37s) due to lock contention.
+  - **At 1,000 Concurrent Users:** 22% error rate, system saturated at ~400 RPS.
+  - **Detailed Report:** See **[docs/load_test/load_test_results.md](docs/load_test/load_test_results.md)** for analysis, comparative tables, and the scaling strategy.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Category      | Technology                 |
@@ -146,26 +160,27 @@ In the spirit of "Production Mindset," here are the trade-offs made for v1.0 and
 
 ## 📚 API Documentation
 
+See **[docs/API.md](docs/API.md)** for detailed endpoint descriptions and `curl` examples.
+
 ### Products
 
 | Method | Endpoint               | Description                                      |
 | ------ | ---------------------- | ------------------------------------------------ |
-| `GET`  | `/api/v1/products`     | List all available products. Supports `?page=1`. |
+| `GET`  | `/api/v1/products`     | List all available products. Supports `page` (Fixed 20/page). |
 | `GET`  | `/api/v1/products/:id` | Get details for a single product.                |
 
 ### Basket
 
-| Method   | Endpoint                | Description              |
-| -------- | ----------------------- | ------------------------ |
-| `GET`    | `/api/v1/basket`        | View current basket.     |
-| `POST`   | `/api/v1/basket/add`    | Add item to basket.      |
-| `DELETE` | `/api/v1/basket/remove` | Remove item from basket. |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `GET` | `/api/v1/shopping_basket` | View current shopping basket. |
+| `POST` | `/api/v1/shopping_basket/products` | Add item to shopping basket. |
 
 ### Checkout
 
-| Method | Endpoint           | Description                                                                |
-| ------ | ------------------ | -------------------------------------------------------------------------- |
-| `POST` | `/api/v1/checkout` | Finalize order. Requires `email`, `shipping_address`, and `payment_token`. |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `POST` | `/api/v1/shopping_basket/checkout` | Finalize order. Requires `email`, `address`, and `payment_token`. |
 
 ---
 
