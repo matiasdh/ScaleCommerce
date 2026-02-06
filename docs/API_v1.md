@@ -2,6 +2,10 @@
 
 Base URL: `/api/v1`
 
+| [Explore V2 Documentation →](API_v2.md) |
+| :--- |
+
+
 ## Products
 
 ### List Products

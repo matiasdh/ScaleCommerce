@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
 
+
   # API Routes
   namespace :api do
     namespace :v1 do
@@ -16,6 +17,10 @@ Rails.application.routes.draw do
         resources :products, only: [ :create ], controller: "shopping_baskets/shopping_basket_products"
         resource :checkout, only: [ :create ], controller: "shopping_baskets/checkouts"
       end
+    end
+
+    namespace :v2 do
+      resources :products, only: [ :index, :show ]
     end
   end
 
