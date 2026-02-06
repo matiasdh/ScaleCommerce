@@ -16,6 +16,8 @@
 /tmp/*
 !/log/.keep
 !/tmp/.keep
+/.envrc
+!/.envrc.sample
 
 # Ignore pidfiles, but keep the directory.
 /tmp/pids/*

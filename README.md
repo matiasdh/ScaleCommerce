@@ -93,45 +93,57 @@ We conducted rigorous load testing to validate our concurrency handling assertio
 
 ### Prerequisites
 
-- **Ruby 3.3+** (managed via [asdf](https://asdf-vm.com/) or rbenv)
+- **Ruby 3.3+** (via asdf, rbenv, mise, or system)
 - **Docker & Docker Compose** (for PostgreSQL and Redis)
+- **just** - `brew install just`
+- **direnv** - `brew install direnv` then add hook to your shell:
+  ```bash
+  # zsh (~/.zshrc)
+  eval "$(direnv hook zsh)"
+
+  # bash (~/.bashrc)
+  eval "$(direnv hook bash)"
+
+  # fish (~/.config/fish/config.fish)
+  direnv hook fish | source
+  ```
 
 ### Installation
 
 ```bash
-# Clone the repository
 git clone <repo_url>
 cd scale-commerce
 
-# Install Ruby version (if using asdf)
-asdf plugin add ruby
-asdf install
-
-# Install dependencies
 bundle install
+
+cp .envrc.sample .envrc
+
+direnv allow
 ```
 
 ### Running Locally
 
 ```bash
-# 1. Start PostgreSQL & Redis
-docker compose up -d
+# View all available commands
+just
 
-# 2. Setup database (creates, migrates, and seeds)
-bundle exec rails db:setup
+# Start everything (postgres, redis, rails server)
+just start
 
-# 3. Start the server
-bundle exec rails server
-
-# 4. Verify it's running
-curl http://localhost:3000/api/v1/products
+# Or step by step:
+just infra       # Start postgres + redis
+just db-setup    # Create, migrate, seed database
+just start       # Start Rails server
 ```
 
 ### Running Tests
 
 ```bash
 # Run all tests
-bundle exec rspec
+just test
+
+# Run specific file
+just test-file spec/requests/api/v2/products_spec.rb
 
 # Run with coverage report
 COVERAGE=true bundle exec rspec
@@ -141,7 +153,7 @@ COVERAGE=true bundle exec rspec
 
 ```bash
 # Enable/Disable caching in development (Required to test Redis caching behavior)
-bundle exec rails dev:cache
+rails dev:cache
 ```
 
 ---
