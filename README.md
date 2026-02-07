@@ -1,41 +1,52 @@
 # ScaleCommerce — High-Scale E-commerce Backend API
 
-[![Ruby](https://img.shields.io/badge/Ruby-3.3-red)](https://www.ruby-lang.org/)
+[![Ruby](https://img.shields.io/badge/Ruby-3.4-red)](https://www.ruby-lang.org/)
 [![Rails](https://img.shields.io/badge/Rails-8-red)](https://rubyonrails.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-Cache-red)](https://redis.io/)
+[![Redis](https://img.shields.io/badge/Redis-7-red)](https://redis.io/)
+[![Sidekiq](https://img.shields.io/badge/Sidekiq-8-purple)](https://sidekiq.org/)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-black)](https://github.com/features/actions)
 
-> A robust, production-grade Rails API designed to handle high concurrency, data integrity, and strict inventory controls.
-
----
-
-## 📖 Project Overview
-
-**ScaleCommerce** is a high-performance, headless e-commerce API built to demonstrate advanced backend engineering patterns.
-
-The system is designed to robustly handle **5,000+ concurrent users** without sacrificing inventory accuracy. It prioritizes data consistency (ACID) over eventual consistency for the checkout process to prevent overselling, simulating the constraints of a real-world high-volume retail environment.
-
-### Key Features
-
-- **Concurrency Control:** Pessimistic locking strategy with deadlock prevention.
-- **Scalable Architecture:** Caching layers (Redis), fast JSON serialization, and background job readiness.
-- **Security:** PCI-compliant data handling for payment information.
-- **Observability:** Structured logging and request tracing ready.
+> A production-grade Rails API built to handle high concurrency and strict inventory controls.
+> Load-tested, benchmarked, and iteratively improved from V1 to V2.
 
 ---
 
-## 🏗️ Architecture & Design Decisions
+## V1 to V2: Identifying Bottlenecks, Then Solving Them
 
-### 1. Handling Concurrency (The Inventory Problem)
+This project follows an **iterative engineering approach**: V1 was built, load-tested with k6 to find real bottlenecks, and V2 addresses them one by one. Some improvements are already shipped, others are on the roadmap -- each backed by data from the load tests.
 
-The critical challenge was preventing race conditions when multiple users attempt to purchase the last item of a product simultaneously.
+### Shipped in V2
 
-- **Strategy:** Pessimistic Locking (`SELECT ... FOR UPDATE`).
-- **Implementation:** During checkout, products are locked at the database level.
-- **Deadlock Prevention:** To avoid deadlocks when users buy the same set of items, resource IDs are deterministically ordered before locking.
+| Problem Area | V1 (Baseline) | Bottleneck Found | V2 (Shipped) |
+|---|---|---|---|
+| **Checkout Flow** | Synchronous (blocks web worker) | Web workers blocked during payment processing, reducing throughput | Async via **Sidekiq** background jobs. Web workers free instantly, traffic spikes absorbed by the queue |
+| **Pagination** | Offset-based (`LIMIT/OFFSET` + `COUNT(*)`) | `COUNT(*)` does a full table scan. Offset degrades to O(n) on large datasets | **Keyset pagination**. Index-only access, constant time regardless of dataset size |
+
+### Next on the Roadmap
+
+| Problem Area | Current Approach | Why It Matters | Planned Improvement |
+|---|---|---|---|
+| **Inventory Writes** | Pessimistic locking (`SELECT ... FOR UPDATE`) | DB-bound under write concurrency. Requests serialize and queue, causing p95 latency of **9.37s** at 200 users | Atomic SQL updates (`UPDATE ... WHERE stock >= ?`). Eliminates row-level lock contention |
+| **Checkout Notifications** | V2 returns `202 Accepted` with no follow-up | Client has no way to know when async checkout completes or fails | Real-time notifications via **ActionCable** (with **AnyCable** for production-grade WebSocket scaling) |
+| **Capacity** | ~150 concurrent users/node | 22% error rate at 1,000 users. Horizontal scaling alone would worsen DB contention | Target **250+ users/node** via atomic updates + read replicas for the 80% read traffic |
+
+> Full analysis: **[Load Testing Report](docs/load_test/load_test_results.md)** | **[V1 API](docs/API_v1.md)** | **[V2 API](docs/API_v2.md)**
+
+---
+
+## Architecture & Design Decisions
+
+### Concurrency Control (The Inventory Problem)
+
+The critical challenge: preventing race conditions when multiple users attempt to purchase the last item simultaneously.
+
+- **Strategy:** Pessimistic Locking (`SELECT ... FOR UPDATE`) -- guarantees correctness above all else.
+- **Deadlock Prevention:** Resource IDs are deterministically sorted before locking to prevent deadlocks when users buy overlapping sets of products.
+- **Known trade-off:** Load testing confirmed this is the primary bottleneck under write concurrency. The roadmap targets atomic SQL updates (`UPDATE ... WHERE stock >= ?`) to eliminate lock contention.
 
 ```ruby
-# Service Object: CheckoutOrderService
+# CheckoutOrderService
 Product.transaction do
   # 1. Sort IDs to prevent deadlocks
   # 2. Lock rows for update
@@ -46,54 +57,65 @@ Product.transaction do
 end
 ```
 
-### 2. Performance Optimizations
+### Performance Optimizations
 
-- **Serialization:** Replaced standard Jbuilder with **Blueprinter + Oj** for ~3x faster JSON generation.
-- **Caching:** Redis is used for low-level caching of public product data.
-- **Database:** Leveraged PostgreSQL's native `uuid` type combined with **UUID v7**.
-  - **Why v7?** Standard UUIDs (v4) cause B-Tree index fragmentation due to randomness. UUID v7 is time-ordered, ensuring sequential inserts and optimal write performance comparable to standard integers.
-  - **Why UUIDs?** Prevents business intelligence leakage (competitors guessing order volume via incremental IDs).
+- **JSON Serialization:** Replaced Jbuilder with **Blueprinter + Oj** for ~3x faster JSON generation.
+- **Multi-layer Caching:** Redis for server-side caching + HTTP ETags/Last-Modified for conditional GET (304 Not Modified).
+- **UUID v7 Primary Keys:** Time-ordered UUIDs preserve B-Tree insert performance (unlike random UUID v4) while preventing business intelligence leakage from sequential IDs.
 
-### 3. Security (PCI Compliance)
+### Security (PCI DSS Compliance)
 
-Raw credit card numbers are **never stored or processed** by the backend.
+Credit card numbers are **never stored, processed, or transmitted** by the backend.
 
-- **Client-Side Tokenization:** The architecture assumes a frontend integration that tokenizes sensitive data directly with the provider.
-- **Backend Responsibility:** The API receives only a payment token (e.g., `tok_123`), ensuring that PAN and CVV data never touch our infrastructure, not even in memory. This design significantly reduces the PCI DSS scope.
+- The architecture assumes client-side tokenization directly with the payment provider.
+- The API receives only a payment token (e.g., `tok_123`), ensuring PAN and CVV data never touch our infrastructure. This design minimizes PCI DSS scope.
 
----
+### Service Object Pattern
 
-## 📊 Load Testing & Benchmarks (v1)
-
-We conducted rigorous load testing to validate our concurrency handling assertions using **k6** against a single node.
-
-- **Objective:** Support 5,000 concurrent users.
-- **Results:**
-  - **Bottleneck Identified:** The Architecture is DB-bound under write concurrency due to Pessimistic Locking.
-  - **Safe Capacity per Node:** ~150 concurrent users.
-  - **At 200 Concurrent Users:** 0% error rate, but high latency (p95 ~9.37s) due to lock contention.
-  - **At 1,000 Concurrent Users:** 22% error rate, system saturated at ~400 RPS.
-  - **Detailed Report:** See **[docs/load_test/load_test_results.md](docs/load_test/load_test_results.md)** for analysis, comparative tables, and the scaling strategy.
+Business logic is extracted into testable service objects with a `BaseService` abstraction, keeping controllers thin and business rules isolated.
 
 ---
 
-## 🛠️ Tech Stack
+## Load Testing & Benchmarks
 
-| Category      | Technology                 |
-| ------------- | -------------------------- |
-| **Language**  | Ruby 3.3                   |
-| **Framework** | Ruby on Rails 8 (API Mode) |
-| **Database**  | PostgreSQL 16              |
-| **Cache**     | Redis                      |
-| **Testing**   | RSpec, FactoryBot, Faker   |
+Rigorous load testing with **k6** against a single node (Puma cluster, 4 workers x 10 threads). Traffic mix: **80% reads / 20% writes** simulating real e-commerce patterns with stateful user journeys and HTTP caching via ETags.
+
+| Metric | 200 VUs | 300 VUs | 600 VUs | 1,000 VUs |
+|---|---:|---:|---:|---:|
+| **Throughput** | 139 RPS | 197 RPS | 335 RPS | 404 RPS |
+| **Error Rate** | 0.00% | 5.67% | 13.94% | 22.93% |
+| **p95 Latency** | 9.37s | 4.95s | 3.56s | 3.31s |
+| **Checkout Success** | 100% | 94% | 86% | 78% |
+
+**Key insight:** At 200 VUs, zero errors but extreme latency -- requests queue behind database locks instead of failing. As load increases, the queue saturates and requests start timing out, which paradoxically *lowers* reported latency of successful requests.
+
+> Detailed per-run outputs: [1000 VUs](docs/load_test/k6_1000_output.md) | [600 VUs](docs/load_test/k6_600_output.md) | [300 VUs](docs/load_test/k6_300_output.md) | [200 VUs](docs/load_test/k6_200_output.md)
 
 ---
 
-## 🚀 Getting Started
+## Tech Stack
+
+| Category | Technology |
+|---|---|
+| **Language** | Ruby 3.4 (YJIT enabled) |
+| **Framework** | Ruby on Rails 8 (API-only mode) |
+| **Database** | PostgreSQL 16 |
+| **Cache** | Redis 7 |
+| **Background Jobs** | Sidekiq 8 |
+| **Serialization** | Blueprinter + Oj |
+| **Pagination** | Pagy (offset + keyset) |
+| **Testing** | RSpec, FactoryBot, Faker, Shoulda Matchers |
+| **Security** | Brakeman (static analysis), Strong Migrations |
+| **CI/CD** | GitHub Actions (RuboCop linting) |
+| **Infrastructure** | Docker, Docker Compose, Puma (cluster mode) |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- **Ruby 3.3+** (via asdf, rbenv, mise, or system)
+- **Ruby 3.4+** (via asdf, rbenv, mise, or system)
 - **Docker & Docker Compose** (for PostgreSQL and Redis)
 - **just** - `brew install just`
 - **direnv** - `brew install direnv` then add hook to your shell:
@@ -152,51 +174,40 @@ COVERAGE=true bundle exec rspec
 ### Development Caching
 
 ```bash
-# Enable/Disable caching in development (Required to test Redis caching behavior)
+# Enable/Disable caching in development (required to test Redis caching behavior)
 rails dev:cache
 ```
 
 ---
 
-## ⚖️ Trade-offs & Future Roadmap
-
-In the spirit of "Production Mindset," here are the trade-offs made for v1.0 and how they would be addressed in v2.0.
-
-| Feature        | Current Approach (v1.0) | Why?                                                                                         | Future Improvement (v2.0)                                                                                          |
-| -------------- | ----------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Inventory**  | Pessimistic Locking     | Guarantees correctness above all else. Easiest to implement correctly for rapid development. | Atomic SQL Updates (`UPDATE ... WHERE stock >= ?`). Reduces lock contention significantly.                         |
-| **Checkout**   | Synchronous             | Simple error handling for the client.                                                        | Asynchronous (Background Jobs). Move payment processing to Sidekiq/SolidQueue to handle traffic spikes gracefully. |
-| **Pagination** | Page-based              | Standard Rails default. Executes `SELECT COUNT(*)` to support total page numbers in UI.      | Cursor-based pagination. Avoids counting full tables, essential for scaling to millions of rows.                   |
-
----
-
-## 📚 API Documentation
-
-See **[docs/API_v1.md](docs/API_v1.md)** for legacy V1 endpoints.
-See **[docs/API_v2.md](docs/API_v2.md)** for the new WIP V2 API (Keyset Pagination with page numbers - avoids `COUNT(*)` queries).
+## API Endpoints
 
 ### Products
 
-| Method | Endpoint               | Description                                      |
-| ------ | ---------------------- | ------------------------------------------------ |
-| `GET`  | `/api/v1/products`     | List all available products. Supports `page` (Fixed 20/page). |
-| `GET`  | `/api/v1/products/:id` | Get details for a single product.                |
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/products` | List products (offset pagination, 20/page) |
+| `GET` | `/api/v2/products` | List products (keyset pagination, 20/page) |
+| `GET` | `/api/v1/products/:id` | Product details |
 
 ### Basket
 
 | Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `GET` | `/api/v1/shopping_basket` | View current shopping basket. |
-| `POST` | `/api/v1/shopping_basket/products` | Add item to shopping basket. |
+|---|---|---|
+| `GET` | `/api/v1/shopping_basket` | View current basket |
+| `POST` | `/api/v1/shopping_basket/products` | Add/update item in basket |
 
 ### Checkout
 
 | Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `POST` | `/api/v1/shopping_basket/checkout` | Finalize order. Requires `email`, `address`, and `payment_token`. |
+|---|---|---|
+| `POST` | `/api/v1/shopping_basket/checkout` | Synchronous checkout (V1) |
+| `POST` | `/api/v2/shopping_basket/checkout` | Async checkout via Sidekiq (V2) |
+
+> Full documentation: **[V1 API](docs/API_v1.md)** | **[V2 API](docs/API_v2.md)**
 
 ---
 
-## 👤 Author
+## Author
 
-**Matías DH**
+**Matias DH**
