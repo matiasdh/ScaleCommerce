@@ -35,6 +35,13 @@ module ScaleCommerce
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+    # This also configures session_options for use below
+    config.session_store :cookie_store, key: "_scale_commerce"
+
+    # Required for all session management (regardless of session_store)
+    config.middleware.use ActionDispatch::Cookies
+
+    config.middleware.use config.session_store, config.session_options
 
     # Preserve full timezone instead of offset in to_time conversions (Rails 8.1+ default)
     config.active_support.to_time_preserves_timezone = :zone

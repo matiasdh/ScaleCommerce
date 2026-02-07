@@ -8,9 +8,20 @@ default:
 
 # === Development ===
 
-# Start infra (postgres + redis) and Rails server
-start: infra
+# Start infra, Rails server and Sidekiq (Ctrl+C stops Sidekiq)
+start:
+    just infra
+    just sidekiq &
+    just server
+
+
+# Rails only (requires infra)
+server: infra
     bin/rails server
+
+# Sidekiq only (requires infra)
+sidekiq: infra
+    bundle exec sidekiq -C config/sidekiq.yml
 
 # Start only infrastructure (postgres + redis)
 infra:
@@ -19,8 +30,9 @@ infra:
     @sleep 2
     @docker-compose ps
 
-# Stop all Docker services
+# Stop Sidekiq and all Docker services
 down:
+    -pkill -f sidekiq
     docker-compose down
 
 # View Docker logs
