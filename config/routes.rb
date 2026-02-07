@@ -24,6 +24,10 @@ Rails.application.routes.draw do
 
     namespace :v2 do
       resources :products, only: [ :index, :show ]
+      resource :shopping_basket, only: [ :show ] do
+        resources :products, only: [ :create ], controller: "shopping_baskets/shopping_basket_products"
+        resource :checkout, only: [ :create ], controller: "shopping_baskets/checkouts"
+      end
     end
   end
 
