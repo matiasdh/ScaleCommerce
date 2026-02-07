@@ -61,6 +61,8 @@ group :test do
   gem "database_cleaner-active_record", "~> 2.1"
   gem "shoulda-matchers", "~> 6.0"
   gem "webmock", "~> 3.19"
+  gem "simplecov", "~> 0.22", require: false
+  gem "simplecov-cobertura", "~> 3.1", require: false
 end
 
 gem "strong_migrations", "~> 2.5"
