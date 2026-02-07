@@ -12,22 +12,22 @@ module ShoppingBaskets
     end
 
     def call
-      ActiveRecord::Base.transaction do
+      order, auth_result = ActiveRecord::Base.transaction do
         @shopping_basket.lock!
 
         # 1. Create Address and CreditCard
-        @address = Address.create!(@address_params)
         @credit_card = CreditCard.create_from_token!(@payment_token, payment_gateway: @payment_gateway)
+        @address = Address.create!(@address_params)
 
-        # 2. Prepare Data
+        # 2. Authorize the payment (hold funds)
+        auth_result = authorize_payment!(@shopping_basket.total_price.cents)
+
+        # 3. Prepare Data
         locked_products_by_id = fetch_locked_products
         purchasable_items, total_cents = calculate_totals(locked_products_by_id)
 
-        # 3. Guard Clause
+        # 4. Guard Clause
         raise EmptyBasketError, "No items available in stock." if purchasable_items.empty?
-
-        # 4. Process Payment
-        process_payment!(total_cents)
 
         # 5. Persist Order
         order = create_order!(total_cents)
@@ -36,11 +36,26 @@ module ShoppingBaskets
         # 6. Cleanup
         cleanup_basket!
 
-        order
+        [ order, auth_result ]
       end
+
+      # 7. Capture Payment
+      capture_payment!(auth_result.authorization_id, order.total_price_cents)
+
+      order
     end
 
     private
+
+    def authorize_payment!(amount_cents)
+      auth_result = @payment_gateway.authorize(
+        token: @payment_token,
+        amount_cents: amount_cents,
+        currency: "USD"
+      )
+      raise PaymentError, auth_result.error_message unless auth_result.success
+      auth_result
+    end
 
     def fetch_locked_products
       product_ids = @shopping_basket.shopping_basket_products.pluck(:product_id)
@@ -69,14 +84,15 @@ module ShoppingBaskets
       [ purchasable_items, total_cents ]
     end
 
-    def process_payment!(amount_cents)
-      result = @payment_gateway.charge(
-        token: @credit_card.token,
+    def capture_payment!(authorization_id, amount_cents)
+      # Capture the authorized payment
+      capture_result = @payment_gateway.capture(
+        authorization_id: authorization_id,
         amount_cents: amount_cents,
         currency: "USD"
       )
 
-      raise PaymentError, result.error_message unless result.success
+      raise PaymentError, capture_result.error_message unless capture_result.success
     end
 
     def create_order!(total_cents)

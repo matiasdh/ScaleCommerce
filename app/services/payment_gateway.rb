@@ -6,11 +6,12 @@ class PaymentGateway
   # Common card brands used for simulation
   CARD_BRANDS = [ "Visa", "MasterCard", "Amex" ].freeze
 
-  PaymentResult = Struct.new(:success, :error_message, :transaction_id, :amount_cents, :currency, keyword_init: true)
+  PaymentResult       = Struct.new(:success, :error_message, :transaction_id, :amount_cents, :currency, keyword_init: true)
+  AuthorizationResult = Struct.new(:success, :error_message, :authorization_id, :amount_cents, :currency, keyword_init: true)
 
   CardDetails = Struct.new(:brand, :last4, :exp_month, :exp_year, :token, keyword_init: true)
 
-  def initialize(latency: 1)
+  def initialize(latency: 0)
     @latency = latency
   end
 
@@ -36,26 +37,69 @@ class PaymentGateway
     end
   end
 
-  def charge(token:, amount_cents:, currency: "USD")
+  # Authorize a payment (hold funds). Returns an authorization that can be captured later.
+  def authorize(token:, amount_cents:, currency: "USD")
     simulate_network_latency
 
     if token == FAIL_TOKEN
-      PaymentResult.new(
+      AuthorizationResult.new(
         success: false,
         error_message: "Insufficient funds",
-        transaction_id: nil,
+        authorization_id: nil,
         amount_cents: amount_cents,
         currency: currency
       )
     else
-      PaymentResult.new(
+      AuthorizationResult.new(
         success: true,
         error_message: nil,
-        transaction_id: "ch_#{SecureRandom.hex(12)}",
+        authorization_id: "pi_#{SecureRandom.hex(12)}",
         amount_cents: amount_cents,
         currency: currency
       )
     end
+  end
+
+  # Capture a previously authorized payment.
+  def capture(authorization_id:, amount_cents:, currency: "USD")
+    simulate_network_latency
+
+    if authorization_id.blank?
+      return PaymentResult.new(
+        success: false,
+        error_message: "Invalid authorization",
+        transaction_id: nil,
+        amount_cents: amount_cents,
+        currency: currency
+      )
+    end
+
+    PaymentResult.new(
+      success: true,
+      error_message: nil,
+      transaction_id: "ch_#{SecureRandom.hex(12)}",
+      amount_cents: amount_cents,
+      currency: currency
+    )
+  end
+
+  # One-step charge: authorize and capture in a single call.
+  # Convenience method for when you don't need to hold funds before capturing.
+  def charge(token:, amount_cents:, currency: "USD")
+    auth = authorize(token: token, amount_cents: amount_cents, currency: currency)
+    return PaymentResult.new(
+      success: false,
+      error_message: auth.error_message,
+      transaction_id: nil,
+      amount_cents: amount_cents,
+      currency: currency
+    ) unless auth.success
+
+    capture(
+      authorization_id: auth.authorization_id,
+      amount_cents: amount_cents,
+      currency: currency
+    )
   end
 
   private

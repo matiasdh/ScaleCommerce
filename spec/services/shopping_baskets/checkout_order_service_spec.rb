@@ -2,11 +2,11 @@ require "rails_helper"
 
 RSpec.describe ShoppingBaskets::CheckoutOrderService do
   # Setup data
-  let(:email)         { "test@example.com" }
+  let(:email)          { "test@example.com" }
   let(:address_params) { attributes_for(:address) }
   # Default to a successful token for happy paths
-  let(:card_token)    { "tok_success" }
-  let(:basket)        { create(:shopping_basket) }
+  let(:card_token)     { "tok_success" }
+  let(:basket)         { create(:shopping_basket) }
 
   # Integration Strategy:
   # We use the REAL PaymentGateway class with 0 latency.
@@ -46,20 +46,31 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
         expect(order.email).to eq(email)
       end
 
+      it "creates a CreditCard and Address from the token and params" do
+        expect {
+          service.call
+        }.to change(CreditCard, :count).by(1)
+         .and change(Address, :count).by(1)
+
+        credit_card = CreditCard.last
+        expect(credit_card.last4).to eq("4242")
+        expect(credit_card.token).to eq("tok_success")
+      end
+
       it "decrements product stock accordingly" do
         service.call
         expect(product.reload.stock).to eq(8)
       end
 
       it "authorizes and captures the payment using the real gateway logic" do
-        # Verify the service authorizes first with correct parameters
+        # Authorize is called with the basket total (before stock filtering)
         expect(payment_gateway).to receive(:authorize).with(
           token: "tok_success",
           amount_cents: 20_00,
           currency: "USD"
         ).and_call_original
 
-        # Then captures the authorization (we'll verify it receives a valid authorization_id)
+        # Capture is called with the order total (after stock filtering)
         expect(payment_gateway).to receive(:capture).with(
           hash_including(
             authorization_id: be_present,
@@ -127,17 +138,27 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
         }.to raise_error(ShoppingBaskets::CheckoutOrderService::EmptyBasketError)
          .and change(Order, :count).by(0)
       end
+
+      it "rolls back CreditCard and Address creation" do
+        expect {
+          begin
+            service.call
+          rescue ShoppingBaskets::CheckoutOrderService::EmptyBasketError
+          end
+        }.to change(CreditCard, :count).by(0)
+         .and change(Address, :count).by(0)
+      end
     end
 
-    context "when payment fails" do
-      let(:product) { create(:product, stock: 10) }
+    context "when payment authorization fails" do
+      let(:product) { create(:product, stock: 10, price_cents: 10_00) }
       let(:card_token) { "tok_fail" }
 
       before do
         create(:shopping_basket_product, shopping_basket: basket, product: product, quantity: 1)
       end
 
-      it "performs a transaction rollback (no stock or order changes)" do
+      it "performs a transaction rollback (no stock, order, credit card, or address changes)" do
         expect {
           begin
             service.call
@@ -145,6 +166,8 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
           end
         }.to change(Order, :count).by(0)
          .and change { product.reload.stock }.by(0)
+         .and change(CreditCard, :count).by(0)
+         .and change(Address, :count).by(0)
          .and change(ShoppingBasket, :count).by(0)
       end
 
@@ -156,7 +179,7 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
     end
 
     context "locking behavior" do
-      let(:product) { create(:product, stock: 10) }
+      let(:product) { create(:product, stock: 10, price_cents: 10_00) }
 
       before do
         create(:shopping_basket_product, shopping_basket: basket, product: product, quantity: 1)
@@ -167,7 +190,7 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
       it "locks the basket and the associated products using FOR UPDATE" do
         expect(basket).to receive(:lock!).and_call_original
 
-        # 2. Verify Product Chain Lock
+        # Verify Product Chain Lock
         # We mock the exact ActiveRecord chain to ensure the query is built correctly
         # Product.where(...) -> .order(:id) -> .lock -> .index_by
         relation_spy = instance_double(ActiveRecord::Relation)

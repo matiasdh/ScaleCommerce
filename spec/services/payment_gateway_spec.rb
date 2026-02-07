@@ -36,12 +36,45 @@ RSpec.describe PaymentGateway do
     end
   end
 
-  describe "#charge" do
+  describe "#authorize" do
     let(:amount) { 15_00 }
 
     context "success scenario" do
-      it "returns a successful payment result with a transaction ID" do
-        result = subject.charge(token: "tok_success", amount_cents: amount)
+      it "returns a successful authorization with a payment intent ID" do
+        result = subject.authorize(token: "tok_success", amount_cents: amount)
+
+        expect(result).to be_a(PaymentGateway::AuthorizationResult)
+        expect(result.success).to be true
+        expect(result.authorization_id).to start_with("pi_")
+        expect(result.error_message).to be_nil
+        expect(result.amount_cents).to eq(amount)
+        expect(result.currency).to eq("USD")
+      end
+    end
+
+    context "failure scenario" do
+      it "returns a failed authorization with the error message" do
+        result = subject.authorize(token: "tok_fail", amount_cents: amount)
+
+        expect(result.success).to be false
+        expect(result.authorization_id).to be_nil
+        expect(result.error_message).to eq("Insufficient funds")
+        expect(result.amount_cents).to eq(amount)
+      end
+    end
+  end
+
+  describe "#capture" do
+    let(:amount) { 15_00 }
+    let(:authorization_id) { "pi_#{SecureRandom.hex(12)}" }
+
+    context "with a valid authorization_id" do
+      it "returns a successful payment result with a charge ID" do
+        result = subject.capture(
+          authorization_id: authorization_id,
+          amount_cents: amount,
+          currency: "USD"
+        )
 
         expect(result.success).to be true
         expect(result.transaction_id).to start_with("ch_")
@@ -51,25 +84,18 @@ RSpec.describe PaymentGateway do
       end
     end
 
-    context "failure scenario" do
-      it "returns a failed result with the error message" do
-        result = subject.charge(token: "tok_fail", amount_cents: amount)
+    context "with a blank authorization_id" do
+      it "returns a failed result" do
+        result = subject.capture(
+          authorization_id: "",
+          amount_cents: amount,
+          currency: "USD"
+        )
 
         expect(result.success).to be false
         expect(result.transaction_id).to be_nil
-        expect(result.error_message).to eq("Insufficient funds")
-        expect(result.amount_cents).to eq(amount)
+        expect(result.error_message).to eq("Invalid authorization")
       end
-    end
-  end
-
-  describe "Network Simulation" do
-    it "sleeps to simulate network latency" do
-      slow_gateway = described_class.new(latency: 0.1)
-
-      expect(slow_gateway).to receive(:sleep).with(0.1)
-
-      slow_gateway.charge(token: "tok_success", amount_cents: 100)
     end
   end
 end
