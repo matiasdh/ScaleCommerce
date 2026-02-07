@@ -66,7 +66,6 @@ Rails.application.configure do
 
   # Use Sidekiq for Active Job (same Redis as cache/cable via REDIS_URL).
   config.active_job.queue_adapter = :sidekiq
-  config.active_job.queue_name_prefix = "scale_commerce_production"
 
   # Disable caching for Action Mailer templates even if Action Controller
   # caching is enabled.

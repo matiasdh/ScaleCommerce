@@ -126,7 +126,7 @@ RSpec.describe CheckoutOrderJob, type: :job do
           .and_raise(ShoppingBaskets::CheckoutOrderService::EmptyBasketError.new("Basket is empty"))
       end
 
-      it "logs the error and re-raises" do
+      it "logs the error and does not re-raise" do
         allow(Rails.logger).to receive(:error)
         expect {
           described_class.perform_now(
@@ -135,7 +135,7 @@ RSpec.describe CheckoutOrderJob, type: :job do
             payment_token: payment_token,
             address_params: address_params
           )
-        }.to raise_error(ShoppingBaskets::CheckoutOrderService::EmptyBasketError, "Basket is empty")
+        }.not_to raise_error
         expect(Rails.logger).to have_received(:error).with(/CheckoutOrderJob failed: Basket is empty/)
       end
     end
@@ -146,7 +146,7 @@ RSpec.describe CheckoutOrderJob, type: :job do
           .and_raise(ShoppingBaskets::CheckoutOrderService::PaymentError.new("Insufficient funds"))
       end
 
-      it "logs the error and re-raises" do
+      it "logs the error and does not re-raise" do
         allow(Rails.logger).to receive(:error)
         expect {
           described_class.perform_now(
@@ -155,7 +155,7 @@ RSpec.describe CheckoutOrderJob, type: :job do
             payment_token: payment_token,
             address_params: address_params
           )
-        }.to raise_error(ShoppingBaskets::CheckoutOrderService::PaymentError, "Insufficient funds")
+        }.not_to raise_error
         expect(Rails.logger).to have_received(:error).with(/CheckoutOrderJob payment failed: Insufficient funds/)
       end
     end

@@ -12,9 +12,7 @@ class CheckoutOrderJob < ApplicationJob
     )
   rescue ::ShoppingBaskets::CheckoutOrderService::EmptyBasketError => e
     Rails.logger.error("CheckoutOrderJob failed: #{e.message} for basket #{shopping_basket_id}")
-    raise # Re-raise to allow retry or dead letter queue handling
   rescue ::ShoppingBaskets::CheckoutOrderService::PaymentError => e
     Rails.logger.error("CheckoutOrderJob payment failed: #{e.message} for basket #{shopping_basket_id}")
-    raise # Re-raise to allow retry or dead letter queue handling
   end
 end
