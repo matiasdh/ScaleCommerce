@@ -23,12 +23,25 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 | **Checkout Flow** | Synchronous (blocks web worker) | Web workers blocked during payment processing, reducing throughput | Async via **Sidekiq** background jobs. Web workers free instantly, traffic spikes absorbed by the queue |
 | **Pagination** | Offset-based (`LIMIT/OFFSET` + `COUNT(*)`) | `COUNT(*)` does a full table scan. Offset degrades to O(n) on large datasets | **Keyset pagination**. Index-only access, constant time regardless of dataset size |
 
-### Next on the Roadmap
+### Shipped in V1
+
+| Area | What Was Shipped | Why It Matters |
+|---|---|---|
+| **Core API** | RESTful endpoints: product catalog with offset pagination, shopping basket, and synchronous checkout with inventory validation | Full e-commerce flow: browse, cart, checkout |
+| **Inventory Concurrency** | **Pessimistic locking** (`SELECT ... FOR UPDATE`) with deterministic ID sorting to prevent deadlocks | Prevents race conditions where two users buy the "last" item simultaneously, avoiding overselling |
+| **JSON Serialization** | **Blueprinter + Oj** — ~3x faster JSON generation via declarative DSL and optimized C-extension encoder ([benchmarks](https://github.com/okuramasafumi/alba/tree/main/benchmark)) | Jbuilder's template overhead and high memory allocation become bottlenecks at scale |
+| **Caching** | **Multi-layer caching**: Redis server-side + HTTP ETags/Last-Modified for conditional GET (304 Not Modified) | 80% of traffic is reads — avoid redundant DB queries on repeated requests |
+| **Primary Keys** | **UUID v7** — time-ordered for B-Tree insert performance, opaque to prevent enumeration | Avoids business intelligence leakage from sequential IDs and B-Tree fragmentation from random UUID v4 |
+| **Payment Security** | **Tokenized payments** — API receives only payment tokens (`tok_123`). PAN/CVV never touch our infrastructure | Minimizes PCI DSS scope: no card data stored, processed, or transmitted |
+| **Business Logic** | **Service Object pattern** with `BaseService` abstraction — controllers stay thin, business rules isolated and testable | Single-responsibility: easy to test, easy to maintain |
+
+### Next on the Roadmap (V3)
 
 | Problem Area | Current Approach | Why It Matters | Planned Improvement |
 |---|---|---|---|
 | **Inventory Writes** | Pessimistic locking (`SELECT ... FOR UPDATE`) | DB-bound under write concurrency. Requests serialize and queue, causing p95 latency of **9.37s** at 200 users | Atomic SQL updates (`UPDATE ... WHERE stock >= ?`). Eliminates row-level lock contention |
 | **Checkout Notifications** | V2 returns `202 Accepted` with no follow-up | Client has no way to know when async checkout completes or fails | Real-time notifications via **ActionCable** (with **AnyCable** for production-grade WebSocket scaling) |
+| **User Sessions** | No authentication (anonymous baskets) | No persistent user identity — baskets are ephemeral and can't survive across devices or sessions | **Session-based authentication** with secure, stateful user sessions for persistent baskets and order history |
 | **Capacity** | ~150 concurrent users/node | 22% error rate at 1,000 users. Horizontal scaling alone would worsen DB contention | Target **250+ users/node** via atomic updates + read replicas for the 80% read traffic |
 
 > Full analysis: **[Load Testing Report](docs/load_test/load_test_results.md)** | **[V1 API](docs/API_v1.md)** | **[V2 API](docs/API_v2.md)**
