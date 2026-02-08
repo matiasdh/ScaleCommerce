@@ -6,6 +6,7 @@ RSpec.describe Order, type: :model do
   describe "Associations" do
     it { should belong_to(:address).dependent(:destroy) }
     it { should belong_to(:credit_card).dependent(:destroy) }
+    it { should belong_to(:shopping_basket).dependent(:destroy).optional }
     it { should have_many(:order_products).dependent(:destroy) }
   end
 
@@ -25,6 +26,8 @@ RSpec.describe Order, type: :model do
   describe "Validations" do
     it { should validate_presence_of(:total_price_cents) }
     it { should validate_presence_of(:email) }
+    it { should validate_presence_of(:shopping_basket_id) }
+    it { should validate_uniqueness_of(:shopping_basket_id) }
 
     context "email format" do
       it { should allow_value("user@example.com").for(:email) }
