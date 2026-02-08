@@ -44,6 +44,7 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
         order = Order.last
         expect(order.total_price_cents).to eq(2000) # 2 * $10.00
         expect(order.email).to eq(email)
+        expect(order.status).to eq("pending")
       end
 
       it "creates a CreditCard and Address from the token and params" do
@@ -111,6 +112,9 @@ RSpec.describe ShoppingBaskets::CheckoutOrderService do
           service.call
         }.to change(Order, :count).by(1)
          .and change(ShoppingBasket, :count).by(0)
+
+        order = Order.last
+        expect(order.status).to eq("pending")
 
         basket.reload
         # Verify only the out-of-stock item remains
