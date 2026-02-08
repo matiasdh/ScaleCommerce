@@ -27,6 +27,7 @@ RSpec.describe ShoppingBasket, type: :model do
   end
 
   describe 'associations' do
+    it { is_expected.to have_one(:order).dependent(:nullify) }
     it { is_expected.to have_many(:shopping_basket_products).dependent(:destroy) }
     it { is_expected.to have_many(:products).through(:shopping_basket_products) }
   end

@@ -3,6 +3,8 @@ class ShoppingBasket < ApplicationRecord
 
   validates :uuid, presence: true
 
+  has_one :order, dependent: :nullify
+
   has_many :shopping_basket_products, dependent: :destroy
   has_many :products, through: :shopping_basket_products
 
