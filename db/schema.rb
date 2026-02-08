@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_08_031306) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_08_034725) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -55,19 +55,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_08_031306) do
   end
 
   create_table "orders", force: :cascade do |t|
-    t.integer "total_price_cents", null: false
-    t.string "email", null: false
+    t.integer "total_price_cents"
+    t.string "email"
     t.string "total_price_currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.bigint "address_id", null: false
-    t.bigint "credit_card_id", null: false
+    t.bigint "address_id"
+    t.bigint "credit_card_id"
     t.bigint "shopping_basket_id"
     t.enum "status", default: "pending", null: false, enum_type: "order_status"
     t.index ["address_id"], name: "index_orders_on_address_id"
     t.index ["credit_card_id"], name: "index_orders_on_credit_card_id"
     t.index ["shopping_basket_id"], name: "index_orders_on_shopping_basket_id", unique: true
-    t.check_constraint "total_price_cents >= 0", name: "chk_orders_total_price_cents_non_negative"
+    t.check_constraint "total_price_cents IS NULL OR total_price_cents >= 0", name: "chk_orders_total_price_cents_non_negative"
   end
 
   create_table "products", force: :cascade do |t|
