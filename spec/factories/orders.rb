@@ -8,6 +8,14 @@ FactoryBot.define do
     total_price_cents { Faker::Number.between(from: 10_00, to: 500_00) }
     total_price_currency { "USD" }
 
+    trait :pending do
+      status { :pending }
+      total_price_cents { nil }
+      email { nil }
+      address { nil }
+      credit_card { nil }
+    end
+
     trait :with_products do
       transient do
         items_count { 3 }
