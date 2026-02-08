@@ -4,8 +4,8 @@ RSpec.describe Order, type: :model do
   subject { build(:order) }
 
   describe "Associations" do
-    it { should belong_to(:address).dependent(:destroy) }
-    it { should belong_to(:credit_card).dependent(:destroy) }
+    it { should belong_to(:address).dependent(:destroy).optional }
+    it { should belong_to(:credit_card).dependent(:destroy).optional }
     it { should belong_to(:shopping_basket).dependent(:destroy).optional }
     it { should have_many(:order_products).dependent(:destroy) }
   end
@@ -24,17 +24,76 @@ RSpec.describe Order, type: :model do
   end
 
   describe "Validations" do
-    it { should validate_presence_of(:total_price_cents) }
-    it { should validate_presence_of(:email) }
+    context "when status is pending" do
+      subject { build(:order, status: :pending) }
+
+      it "allows total_price_cents to be nil" do
+        subject.total_price_cents = nil
+        expect(subject).to be_valid
+      end
+
+      it "allows total_price_cents to be 0" do
+        subject.total_price_cents = 0
+        expect(subject).to be_valid
+      end
+
+      it "allows email to be nil" do
+        subject.email = nil
+        expect(subject).to be_valid
+      end
+
+      it "allows address_id to be nil" do
+        subject.address_id = nil
+        expect(subject).to be_valid
+      end
+
+      it "allows credit_card_id to be nil" do
+        subject.credit_card_id = nil
+        expect(subject).to be_valid
+      end
+
+      it "can be created with all optional fields as nil" do
+        order = build(:order,
+          status: :pending,
+          total_price_cents: nil,
+          email: nil,
+          address: nil,
+          credit_card: nil
+        )
+        expect(order).to be_valid
+        expect(order.save).to be true
+      end
+    end
+
+    context "when status is not pending" do
+      subject { build(:order, status: :authorized) }
+
+      it { should validate_presence_of(:total_price_cents) }
+      it { should validate_presence_of(:email) }
+
+      it "validates total_price_cents is greater than 0" do
+        subject.total_price_cents = 0
+        expect(subject).not_to be_valid
+        expect(subject.errors[:total_price_cents]).to be_present
+      end
+
+      it "validates email format" do
+        subject.email = "invalid_email"
+        expect(subject).not_to be_valid
+        expect(subject.errors[:email]).to be_present
+      end
+    end
 
     context "shopping_basket_id uniqueness" do
       let!(:shopping_basket) { create(:shopping_basket) }
-      subject { build(:order, shopping_basket: shopping_basket) }
+      subject { build(:order, shopping_basket: shopping_basket, status: :authorized) }
 
       it { should validate_uniqueness_of(:shopping_basket_id).allow_nil }
     end
 
     context "email format" do
+      subject { build(:order, status: :authorized) }
+
       it { should allow_value("user@example.com").for(:email) }
       it { should allow_value("name+tag@mail.co.uk").for(:email) }
 
@@ -67,6 +126,15 @@ RSpec.describe Order, type: :model do
 
       described_class.statuses.keys.each do |status|
         order.status = status
+        # When status is pending, order can be valid without required fields
+        # When status is not pending, order needs required fields
+        if status == "pending"
+          order.total_price_cents = nil
+          order.email = nil
+        else
+          order.total_price_cents ||= 1000
+          order.email ||= "test@example.com"
+        end
         expect(order).to be_valid
       end
     end
@@ -92,6 +160,15 @@ RSpec.describe Order, type: :model do
 
   describe "Monetize" do
     it { is_expected.to monetize(:total_price).with_model_currency(:total_price_currency) }
-    it { is_expected.to validate_numericality_of(:total_price).is_greater_than_or_equal_to(0) }
+
+    context "when status is not pending" do
+      subject { build(:order, status: :authorized) }
+
+      it "validates total_price_cents is greater than 0" do
+        subject.total_price_cents = 0
+        expect(subject).not_to be_valid
+        expect(subject.errors[:total_price_cents]).to be_present
+      end
+    end
   end
 end
