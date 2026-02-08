@@ -26,8 +26,13 @@ RSpec.describe Order, type: :model do
   describe "Validations" do
     it { should validate_presence_of(:total_price_cents) }
     it { should validate_presence_of(:email) }
-    it { should validate_presence_of(:shopping_basket_id) }
-    it { should validate_uniqueness_of(:shopping_basket_id) }
+
+    context "shopping_basket_id uniqueness" do
+      let!(:shopping_basket) { create(:shopping_basket) }
+      subject { build(:order, shopping_basket: shopping_basket) }
+
+      it { should validate_uniqueness_of(:shopping_basket_id).allow_nil }
+    end
 
     context "email format" do
       it { should allow_value("user@example.com").for(:email) }
@@ -35,6 +40,53 @@ RSpec.describe Order, type: :model do
 
       it { should_not allow_value("user").for(:email) }
       it { should_not allow_value("").for(:email) }
+    end
+  end
+
+  describe "Status enum" do
+    it "has the correct enum values" do
+      expect(described_class.statuses.keys).to match_array([
+        "pending",
+        "authorized",
+        "insufficient_funds",
+        "captured",
+        "partially_fulfilled",
+        "fulfilled",
+        "completed",
+        "failed"
+      ])
+    end
+
+    it "defaults to pending status" do
+      order = build(:order)
+      expect(order.status).to eq("pending")
+    end
+
+    it "allows setting valid status values" do
+      order = build(:order)
+
+      described_class.statuses.keys.each do |status|
+        order.status = status
+        expect(order).to be_valid
+      end
+    end
+
+    it "does not allow invalid status values" do
+      order = build(:order)
+      order.status = "invalid_status"
+
+      expect(order).not_to be_valid
+      expect(order.errors[:status]).to include("is not included in the list")
+    end
+
+    it "provides status predicate methods" do
+      order = build(:order, status: :pending)
+      expect(order.pending?).to be true
+      expect(order.authorized?).to be false
+
+      order.status = :authorized
+      expect(order.authorized?).to be true
+      expect(order.pending?).to be false
     end
   end
 

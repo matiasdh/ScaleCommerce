@@ -10,9 +10,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_08_023335) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_08_031306) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  # Custom types defined in this database.
+  # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "order_status", ["pending", "authorized", "insufficient_funds", "captured", "partially_fulfilled", "fulfilled", "completed", "failed"]
 
   create_table "addresses", force: :cascade do |t|
     t.string "line_1", null: false
@@ -59,6 +63,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_08_023335) do
     t.bigint "address_id", null: false
     t.bigint "credit_card_id", null: false
     t.bigint "shopping_basket_id"
+    t.enum "status", default: "pending", null: false, enum_type: "order_status"
     t.index ["address_id"], name: "index_orders_on_address_id"
     t.index ["credit_card_id"], name: "index_orders_on_credit_card_id"
     t.index ["shopping_basket_id"], name: "index_orders_on_shopping_basket_id", unique: true

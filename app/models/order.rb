@@ -12,7 +12,18 @@ class Order < ApplicationRecord
 
   validates :total_price_cents, presence: true
   validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
-  validates :shopping_basket_id, presence: true, uniqueness: true
+  validates :shopping_basket_id, uniqueness: { allow_nil: true }
+
+  enum :status, {
+    pending: "pending",
+    authorized: "authorized",
+    insufficient_funds: "insufficient_funds",
+    captured: "captured",
+    partially_fulfilled: "partially_fulfilled",
+    fulfilled: "fulfilled",
+    completed: "completed",
+    failed: "failed"
+  }, validate: true
 
   monetize :total_price_cents,
            with_model_currency: :total_price_currency,
