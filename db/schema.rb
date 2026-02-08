@@ -10,27 +10,27 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_11_200219) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_08_023335) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "addresses", force: :cascade do |t|
-    t.string "line_1"
+    t.string "line_1", null: false
     t.string "line_2"
-    t.string "city"
-    t.string "state"
-    t.string "zip"
-    t.string "country"
+    t.string "city", null: false
+    t.string "state", null: false
+    t.string "zip", null: false
+    t.string "country", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
   create_table "credit_cards", force: :cascade do |t|
-    t.string "last4"
-    t.string "brand"
-    t.integer "exp_month"
-    t.integer "exp_year"
-    t.string "token"
+    t.string "last4", null: false
+    t.string "brand", null: false
+    t.integer "exp_month", null: false
+    t.integer "exp_year", null: false
+    t.string "token", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
@@ -38,36 +38,43 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_200219) do
   create_table "order_products", force: :cascade do |t|
     t.bigint "order_id", null: false
     t.bigint "product_id", null: false
-    t.integer "quantity"
-    t.integer "unit_price_cents"
+    t.integer "quantity", null: false
+    t.integer "unit_price_cents", null: false
     t.string "unit_price_currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["order_id", "product_id"], name: "index_order_products_on_order_id_and_product_id", unique: true
     t.index ["order_id"], name: "index_order_products_on_order_id"
     t.index ["product_id"], name: "index_order_products_on_product_id"
+    t.check_constraint "quantity > 0", name: "chk_order_products_quantity_positive"
+    t.check_constraint "unit_price_cents >= 0", name: "chk_order_products_unit_price_non_negative"
   end
 
   create_table "orders", force: :cascade do |t|
-    t.integer "total_price_cents"
-    t.string "email"
+    t.integer "total_price_cents", null: false
+    t.string "email", null: false
     t.string "total_price_currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.bigint "address_id", null: false
     t.bigint "credit_card_id", null: false
+    t.bigint "shopping_basket_id"
     t.index ["address_id"], name: "index_orders_on_address_id"
     t.index ["credit_card_id"], name: "index_orders_on_credit_card_id"
+    t.index ["shopping_basket_id"], name: "index_orders_on_shopping_basket_id", unique: true
+    t.check_constraint "total_price_cents >= 0", name: "chk_orders_total_price_cents_non_negative"
   end
 
   create_table "products", force: :cascade do |t|
-    t.string "name"
+    t.string "name", null: false
     t.text "description"
-    t.string "currency"
+    t.string "currency", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "stock", default: 0, null: false
     t.integer "price_cents", default: 0, null: false
+    t.check_constraint "price_cents > 0", name: "chk_products_price_positive"
+    t.check_constraint "stock >= 0", name: "chk_products_stock_non_negative"
   end
 
   create_table "shopping_basket_products", force: :cascade do |t|
@@ -79,6 +86,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_200219) do
     t.index ["product_id"], name: "index_shopping_basket_products_on_product_id"
     t.index ["shopping_basket_id", "product_id"], name: "idx_on_shopping_basket_id_product_id_821e8a2fb7", unique: true
     t.index ["shopping_basket_id"], name: "index_shopping_basket_products_on_shopping_basket_id"
+    t.check_constraint "quantity > 0", name: "chk_shopping_basket_products_quantity_positive"
   end
 
   create_table "shopping_baskets", force: :cascade do |t|
@@ -92,6 +100,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_200219) do
   add_foreign_key "order_products", "products"
   add_foreign_key "orders", "addresses"
   add_foreign_key "orders", "credit_cards"
+  add_foreign_key "orders", "shopping_baskets", validate: false
   add_foreign_key "shopping_basket_products", "products"
   add_foreign_key "shopping_basket_products", "shopping_baskets"
 end
