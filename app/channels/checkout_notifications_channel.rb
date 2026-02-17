@@ -1,5 +1,7 @@
 class CheckoutNotificationsChannel < ApplicationCable::Channel
   def subscribed
+    return reject unless params[:shopping_basket_id].present?
+
     stream_from stream_name
   end
 
