@@ -23,6 +23,7 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 | **Checkout Flow** | Synchronous (blocks web worker) | Web workers blocked during payment processing, reducing throughput | Async via **Sidekiq** background jobs. Web workers free instantly, traffic spikes absorbed by the queue |
 | **Pagination** | Offset-based (`LIMIT/OFFSET` + `COUNT(*)`) | `COUNT(*)` does a full table scan. Offset degrades to O(n) on large datasets | **Keyset pagination**. Index-only access, constant time regardless of dataset size |
 | **Checkout Notifications** | N/A (sync checkout) | Async checkout returns `202 Accepted` with no follow-up — client has no way to know when processing completes | **ActionCable** WebSocket channel. 202 response includes subscription details; client receives real-time completion or failure notifications |
+| **Checkout Stock Reservation** | Pessimistic locking (`SELECT ... FOR UPDATE`) | Product locks held during payment auth. At 200 VUs: p95 = 9.37s | **CheckoutOrderAtomicService** with batch `UPDATE ... WHERE stock >= ?`. One UPDATE per cart, no product locks. V2 async checkout uses it |
 
 ### Shipped in V1
 
@@ -40,9 +41,8 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 
 | Problem Area | Current Approach | Why It Matters | Planned Improvement |
 |---|---|---|---|
-| **Inventory Writes** | Pessimistic locking (`SELECT ... FOR UPDATE`) | DB-bound under write concurrency. Requests serialize and queue, causing p95 latency of **9.37s** at 200 users | Atomic SQL updates (`UPDATE ... WHERE stock >= ?`). Eliminates row-level lock contention |
 | **User Sessions** | No authentication (anonymous baskets) | No persistent user identity — baskets are ephemeral and can't survive across devices or sessions | **Session-based authentication** with secure, stateful user sessions for persistent baskets and order history |
-| **Capacity** | ~150 concurrent users/node | 22% error rate at 1,000 users. Horizontal scaling alone would worsen DB contention | Target **250+ users/node** via atomic updates + read replicas for the 80% read traffic |
+| **Capacity** | ~150 concurrent users/node | 22% error rate at 1,000 users. Horizontal scaling alone would worsen DB contention | Target **250+ users/node** via read replicas for the 80% read traffic (atomic checkout already shipped) |
 
 > Full analysis: **[Load Testing Report](docs/load_test/load_test_results.md)** | **[V1 API](docs/API_v1.md)** | **[V2 API](docs/API_v2.md)**
 
@@ -54,20 +54,16 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 
 The critical challenge: preventing race conditions when multiple users attempt to purchase the last item simultaneously.
 
-- **Strategy:** Pessimistic Locking (`SELECT ... FOR UPDATE`) -- guarantees correctness above all else.
-- **Deadlock Prevention:** Resource IDs are deterministically sorted before locking to prevent deadlocks when users buy overlapping sets of products.
-- **Known trade-off:** Load testing confirmed this is the primary bottleneck under write concurrency. The roadmap targets atomic SQL updates (`UPDATE ... WHERE stock >= ?`) to eliminate lock contention.
+- **V1 (sync checkout):** Pessimistic locking (`SELECT ... FOR UPDATE`) with deterministic ID sorting to prevent deadlocks.
+- **V2 (async checkout):** `CheckoutOrderAtomicService` uses batch `UPDATE ... FROM (VALUES ...) WHERE stock >= quantity`. No product locks. One atomic UPDATE per cart. Partial fulfillment when some items are out of stock.
 
 ```ruby
-# CheckoutOrderService
-Product.transaction do
-  # 1. Sort IDs to prevent deadlocks
-  # 2. Lock rows for update
-  locked_products = Product.where(id: item_ids).order(:id).lock
-
-  # 3. Validate stock and decrement atomically
-  # ...
-end
+# CheckoutOrderAtomicService
+UPDATE products p
+SET stock = p.stock - items.quantity
+FROM (VALUES (product_id, quantity), ...) AS items(product_id, quantity)
+WHERE p.id = items.product_id AND p.stock >= items.quantity
+RETURNING p.id, items.quantity
 ```
 
 ### Performance Optimizations
