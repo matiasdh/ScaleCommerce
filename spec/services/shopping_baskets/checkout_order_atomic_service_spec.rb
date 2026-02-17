@@ -12,7 +12,6 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
   let(:service) do
     described_class.new(
       shopping_basket: basket_with_associations,
-      email:,
       payment_token: checkout_payment_token,
       address_params:,
       order:,
@@ -25,8 +24,15 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
   describe "#call" do
     context "when all items are in stock (Happy Path)" do
       let(:product) { create(:product, stock: 10, price_cents: 10_00) }
-      let(:order) { basket.create_order!(status: :pending) }
       let!(:basket_item) { create(:shopping_basket_product, shopping_basket: basket, product:, quantity: 2) }
+      let(:order) do
+        basket.create_order!(
+          status: :pending,
+          email:,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
 
       it "updates the order and completes checkout" do
         expect(checkout_result).to be_completed
@@ -59,9 +65,16 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
     context "when some items are out of stock (Partial Fulfillment)" do
       let(:in_stock_product) { create(:product, stock: 5, price_cents: 1000) }
       let(:out_of_stock_product) { create(:product, stock: 0, price_cents: 5000) }
-      let(:order) { basket.create_order!(status: :pending) }
       let!(:in_stock_item) { create(:shopping_basket_product, shopping_basket: basket, product: in_stock_product, quantity: 1) }
       let!(:out_of_stock_item) { create(:shopping_basket_product, shopping_basket: basket, product: out_of_stock_product, quantity: 1) }
+      let(:order) do
+        basket.create_order!(
+          status: :pending,
+          email:,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
 
       it "updates order only for available items and keeps basket alive" do
         expect(payment_gateway).to receive(:authorize).with(hash_including(amount_cents: 60_00)).and_call_original
@@ -77,8 +90,15 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
 
     context "when all items are unavailable" do
       let(:product) { create(:product, stock: 0, price_cents: 10_00) }
-      let(:order) { basket.create_order!(status: :pending) }
       let!(:basket_item) { create(:shopping_basket_product, shopping_basket: basket, product:, quantity: 1) }
+      let(:order) do
+        basket.create_order!(
+          status: :pending,
+          email:,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
 
       it "raises EmptyBasketError after authorizing but before capturing" do
         expect(payment_gateway).to receive(:authorize).and_call_original
@@ -94,9 +114,16 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
 
     context "when payment authorization fails" do
       let(:product) { create(:product, stock: 10, price_cents: 10_00) }
-      let(:order) { basket.create_order!(status: :pending) }
       let(:checkout_payment_token) { "tok_fail" }
       let!(:basket_item) { create(:shopping_basket_product, shopping_basket: basket, product:, quantity: 1) }
+      let(:order) do
+        basket.create_order!(
+          status: :pending,
+          email:,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
 
       it "does not change stock, order, credit card, or address" do
         expect { checkout_result rescue described_class::PaymentError }.to change { product.reload.stock }.by(0)
@@ -111,8 +138,15 @@ RSpec.describe ShoppingBaskets::CheckoutOrderAtomicService do
 
     context "when order is not pending or failed" do
       let(:product) { create(:product, stock: 10, price_cents: 10_00) }
-      let(:order) { basket.create_order!(status: :pending) }
       let!(:basket_item) { create(:shopping_basket_product, shopping_basket: basket, product:, quantity: 1) }
+      let(:order) do
+        basket.create_order!(
+          status: :pending,
+          email:,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
       let!(:order_authorized) { order.update_columns(status: "authorized", total_price_cents: 1000, email: "x@x.com"); order }
 
       it "raises PaymentError" do

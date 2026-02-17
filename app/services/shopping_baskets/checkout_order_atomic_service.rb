@@ -3,9 +3,8 @@ module ShoppingBaskets
     class EmptyBasketError < StandardError; end
     class PaymentError < StandardError; end
 
-    def initialize(shopping_basket:, email:, payment_token:, address_params:, order:, payment_gateway: PaymentGateway.new)
+    def initialize(shopping_basket:, payment_token:, address_params:, order:, payment_gateway: PaymentGateway.new)
       @shopping_basket = shopping_basket
-      @email = email
       @payment_token = payment_token
       @address_params = address_params
       @payment_gateway = payment_gateway
@@ -17,9 +16,10 @@ module ShoppingBaskets
       auth_result = authorize_payment!(shopping_basket.total_price.cents, credit_card.token)
 
       order = ActiveRecord::Base.transaction do
-        order.authorized!
         credit_card.save!
         address = Address.create!(address_params)
+        @order.update!(address:, credit_card:)
+        @order.authorized!
         products_by_id = fetch_products
         purchasable_items = reserve_stock_atomically!
         total_cents = calculate_totals(purchasable_items, products_by_id)
@@ -37,7 +37,7 @@ module ShoppingBaskets
 
     private
 
-    attr_reader :shopping_basket, :email, :payment_token, :address_params, :payment_gateway, :order
+    attr_reader :shopping_basket, :payment_token, :address_params, :payment_gateway, :order
 
     def authorize_payment!(amount_cents, token)
       raise PaymentError, "Order must be pending or failed to authorize" unless order.pending? || order.failed?
@@ -116,7 +116,6 @@ module ShoppingBaskets
 
     def create_or_update_order!(total_cents, credit_card:, address:)
       order.update!(
-        email:,
         address:,
         credit_card:,
         total_price_cents: total_cents,

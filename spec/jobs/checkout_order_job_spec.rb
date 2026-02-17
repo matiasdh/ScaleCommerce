@@ -31,7 +31,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
       expect {
         described_class.perform_later(
           shopping_basket_id: basket.id,
-          email: email,
           payment_token: payment_token,
           address_params: address_params
         )
@@ -42,13 +41,11 @@ RSpec.describe CheckoutOrderJob, type: :job do
       expect {
         described_class.perform_later(
           shopping_basket_id: basket.id,
-          email: email,
           payment_token: payment_token,
           address_params: address_params
         )
       }.to have_enqueued_job(CheckoutOrderJob).with(
         shopping_basket_id: basket.id,
-        email: email,
         payment_token: payment_token,
         address_params: address_params
       )
@@ -57,7 +54,14 @@ RSpec.describe CheckoutOrderJob, type: :job do
 
   describe "#perform" do
     context "with valid parameters" do
-      before { basket.create_order!(status: :pending) }
+      before do
+        basket.create_order!(
+          status: :pending,
+          email: email,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
+      end
 
       it "calls CheckoutOrderAtomicService and completes the order" do
         order = basket.order
@@ -65,7 +69,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
 
         described_class.perform_now(
           shopping_basket_id: basket.id,
-          email: email,
           payment_token: payment_token,
           address_params: address_params
         )
@@ -78,7 +81,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -91,12 +93,11 @@ RSpec.describe CheckoutOrderJob, type: :job do
     context "when shopping basket does not exist" do
       it "raises ActiveRecord::RecordNotFound" do
         expect {
-          described_class.perform_now(
-            shopping_basket_id: 99_999,
-            email: email,
-            payment_token: payment_token,
-            address_params: address_params
-          )
+        described_class.perform_now(
+          shopping_basket_id: 99_999,
+          payment_token: payment_token,
+          address_params: address_params
+        )
         }.to raise_error(ActiveRecord::RecordNotFound)
       end
 
@@ -104,19 +105,23 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect(ShoppingBaskets::CheckoutOrderAtomicService).not_to receive(:call)
 
         expect {
-          described_class.perform_now(
-            shopping_basket_id: 99_999,
-            email: email,
-            payment_token: payment_token,
-            address_params: address_params
-          )
+        described_class.perform_now(
+          shopping_basket_id: 99_999,
+          payment_token: payment_token,
+          address_params: address_params
+        )
         }.to raise_error(ActiveRecord::RecordNotFound)
       end
     end
 
     context "when checkout fails with EmptyBasketError" do
       before do
-        basket.create_order!(status: :pending)
+        basket.create_order!(
+          status: :pending,
+          email: email,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
         allow(ShoppingBaskets::CheckoutOrderAtomicService).to receive(:call)
           .and_raise(ShoppingBaskets::CheckoutOrderAtomicService::EmptyBasketError.new("Basket is empty"))
       end
@@ -126,7 +131,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -138,7 +142,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -151,7 +154,12 @@ RSpec.describe CheckoutOrderJob, type: :job do
 
     context "when checkout fails with PaymentError" do
       before do
-        basket.create_order!(status: :pending)
+        basket.create_order!(
+          status: :pending,
+          email: email,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
         allow(ShoppingBaskets::CheckoutOrderAtomicService).to receive(:call)
           .and_raise(ShoppingBaskets::CheckoutOrderAtomicService::PaymentError.new("Insufficient funds"))
       end
@@ -161,7 +169,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -173,7 +180,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -186,7 +192,12 @@ RSpec.describe CheckoutOrderJob, type: :job do
 
     context "when service raises an unexpected error" do
       before do
-        basket.create_order!(status: :pending)
+        basket.create_order!(
+          status: :pending,
+          email: email,
+          total_price_cents: basket.total_price.cents,
+          total_price_currency: basket.total_price.currency
+        )
         allow(ShoppingBaskets::CheckoutOrderAtomicService).to receive(:call)
           .and_raise(StandardError.new("Unexpected error"))
       end
@@ -195,7 +206,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         expect {
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )
@@ -207,7 +217,6 @@ RSpec.describe CheckoutOrderJob, type: :job do
         begin
           described_class.perform_now(
             shopping_basket_id: basket.id,
-            email: email,
             payment_token: payment_token,
             address_params: address_params
           )

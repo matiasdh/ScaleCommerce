@@ -1,13 +1,12 @@
 class CheckoutOrderJob < ApplicationJob
   queue_as :default
 
-  def perform(shopping_basket_id:, email:, payment_token:, address_params:)
+  def perform(shopping_basket_id:, payment_token:, address_params:)
     shopping_basket = ShoppingBasket.with_associations.find(shopping_basket_id)
     stream_name = "checkout_#{shopping_basket.uuid}"
 
     order = ::ShoppingBaskets::CheckoutOrderAtomicService.call(
       shopping_basket:,
-      email:,
       payment_token:,
       address_params:,
       order: shopping_basket.order
