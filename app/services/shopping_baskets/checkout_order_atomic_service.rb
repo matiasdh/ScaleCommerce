@@ -17,6 +17,7 @@ module ShoppingBaskets
       auth_result = authorize_payment!(shopping_basket.total_price.cents, credit_card.token)
 
       order = ActiveRecord::Base.transaction do
+        order.authorized!
         credit_card.save!
         address = Address.create!(address_params)
         products_by_id = fetch_products
@@ -25,7 +26,6 @@ module ShoppingBaskets
         order = create_or_update_order!(total_cents, credit_card:, address:)
         fulfill_items!(order, purchasable_items, products_by_id)
         cleanup_basket!
-        order.authorized!
         order
       end
 
