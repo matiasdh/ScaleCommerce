@@ -202,13 +202,16 @@ rails dev:cache
 | `GET` | `/api/v1/products` | List products (offset pagination, 20/page) |
 | `GET` | `/api/v2/products` | List products (keyset pagination, 20/page) |
 | `GET` | `/api/v1/products/:id` | Product details |
+| `GET` | `/api/v2/products/:id` | Product details (same as V1) |
 
 ### Basket
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/v1/shopping_basket` | View current basket |
+| `GET` | `/api/v2/shopping_basket` | View current basket (same as V1) |
 | `POST` | `/api/v1/shopping_basket/products` | Add/update item in basket |
+| `POST` | `/api/v2/shopping_basket/products` | Add/update item in basket (same as V1) |
 
 ### Checkout
 
