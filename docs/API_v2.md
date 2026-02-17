@@ -96,11 +96,97 @@ Returns details of a specific product.
 
 ---
 
+## Shopping Baskets
+
+All endpoints related to the shopping basket require (or provide) a `Shopping-Basket-ID` header or use the `Authorization` header with a Bearer token to identify the session. Same behavior as V1 — basket endpoints are available in V2 for a complete flow.
+
+### Show Shopping Basket
+Retrieves the current shopping basket. If no valid token is provided, a new empty basket is returned.
+
+**Note:** PROVISIONAL BASKET. If no token is provided, the basket is NOT persisted and NO `Shopping-Basket-ID` token is returned. To get a persistent token, you must add a product.
+
+- **Endpoint:** `GET /shopping_basket`
+- **Headers:**
+  - `Authorization: Bearer <uuid>` (optional): To retrieve an existing basket.
+- **Example:**
+  ```bash
+  # Empty basket (no token)
+  curl "http://localhost:3000/api/v2/shopping_basket"
+
+  # Retrieve existing basket
+  curl "http://localhost:3000/api/v2/shopping_basket" \
+    -H "Authorization: Bearer <your-uuid>"
+  ```
+- **Response:**
+  - **Status:** `200 OK`
+  - **Body:**
+    ```json
+    {
+      "products": [],
+      "total_price": { "cents": 0, "currency": "USD" }
+    }
+    ```
+    With items:
+    ```json
+    {
+      "products": [
+        {
+          "id": 1,
+          "name": "Mediocre Rubber Clock 0",
+          "description": "Product description here",
+          "quantity": 2,
+          "stock_status": "AVAILABLE",
+          "total_price": { "cents": 30200, "currency": "USD" }
+        }
+      ],
+      "total_price": { "cents": 30200, "currency": "USD" }
+    }
+    ```
+  - **Fields:**
+    - `stock_status`: `AVAILABLE` | `OUT_OF_STOCK`
+
+### Add/Update Product in Basket
+Adds a product to the basket or updates its quantity.
+
+**Note:** If no token is provided, this endpoint creates a new persisted basket and returns the `Shopping-Basket-ID` header. Save this token for subsequent requests.
+
+- **Endpoint:** `POST /shopping_basket/products`
+- **Headers:**
+  - `Authorization: Bearer <uuid>` (optional: required to update an existing basket)
+- **Parameters (JSON Body):**
+  ```json
+  {
+    "product": {
+      "product_id": 1,
+      "quantity": 2
+    }
+  }
+  ```
+- **Example:**
+  ```bash
+  # 1. Create basket (no token) — returns Shopping-Basket-ID header
+  curl -v -X POST "http://localhost:3000/api/v2/shopping_basket/products" \
+    -H "Content-Type: application/json" \
+    -d '{"product": {"product_id": 1, "quantity": 2}}'
+
+  # 2. Update existing basket (use token from step 1)
+  curl -v -X POST "http://localhost:3000/api/v2/shopping_basket/products" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <uuid-from-step-1>" \
+    -d '{"product": {"product_id": 1, "quantity": 5}}'
+  ```
+- **Response:**
+  - **Status:** `201 Created`
+  - **Headers:** `Shopping-Basket-ID: <uuid>` (when creating new basket)
+  - **Body:** Returns the updated shopping basket structure (same as GET).
+
+---
+
 ## Checkout (Async)
 
 Processes the checkout asynchronously. Returns immediately with `202 Accepted` and provides WebSocket subscription details to receive completion notifications.
 
-**Prerequisites:** Create a basket and add products via V1 (`POST /api/v1/shopping_basket/products`). Use the `Shopping-Basket-ID` header from the response or the basket UUID for the `Authorization` header.
+**Prerequisites:** Create a basket and add products via V2 (`POST /api/v2/shopping_basket/products`). Use the `Shopping-Basket-ID` header from the response or the basket UUID for the `Authorization` header.
 
 - **Endpoint:** `POST /shopping_basket/checkout`
 - **Headers:**
@@ -123,12 +209,12 @@ Processes the checkout asynchronously. Returns immediately with `202 Accepted` a
   - `payment_token`: Use `tok_success` for successful payment simulation or `tok_fail` to simulate a decline.
 - **Example:**
   ```bash
-  # 1. Create basket and add product (V1) - save Shopping-Basket-ID from response headers
-  curl -v -X POST "http://localhost:3000/api/v1/shopping_basket/products" \
+  # 1. Create basket and add product (V2) — save Shopping-Basket-ID from response headers
+  curl -v -X POST "http://localhost:3000/api/v2/shopping_basket/products" \
     -H "Content-Type: application/json" \
     -d '{"product": {"product_id": 1, "quantity": 2}}'
 
-  # 2. Checkout (V2) - use basket UUID from step 1
+  # 2. Checkout — use basket UUID from step 1
   curl -v -X POST "http://localhost:3000/api/v2/shopping_basket/checkout" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer <uuid-from-step-1>" \
