@@ -81,6 +81,17 @@ RSpec.describe "Api::V2::ShoppingBaskets::Checkouts", type: :request do
         json = JSON.parse(response.body)
         expect(json["message"]).to eq("Checkout processing started")
       end
+
+      it "returns notifications object with channel and params for WebSocket subscription" do
+        allow(CheckoutOrderJob).to receive(:perform_later)
+        post endpoint, params: valid_params, headers: headers
+
+        json = JSON.parse(response.body)
+        expect(json["notifications"]).to eq(
+          "channel" => "CheckoutNotificationsChannel",
+          "params" => { "shopping_basket_id" => basket.uuid }
+        )
+      end
     end
 
     context "Error Handling" do
