@@ -9,7 +9,7 @@ module Api
 
           current_shopping_basket.build_order(status: :pending).save!
           enqueue_checkout_job
-          render json: { message: "Checkout processing started" }, status: :accepted
+          render json: checkout_response, status: :accepted
         rescue ActiveRecord::RecordNotUnique, PG::UniqueViolation
           render_checkout_already_processing
         end
@@ -32,6 +32,16 @@ module Api
               messages: [ "Checkout is already being processed" ]
             }
           }, status: :conflict
+        end
+
+        def checkout_response
+          {
+            message: "Checkout processing started",
+            notifications: {
+              channel: "CheckoutNotificationsChannel",
+              params: { shopping_basket_id: current_shopping_basket.uuid }
+            }
+          }
         end
 
         def checkout_params

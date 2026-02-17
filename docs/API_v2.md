@@ -93,3 +93,117 @@ Returns details of a specific product.
     }
     ```
   - **Status:** `404 Not Found` (if product does not exist)
+
+---
+
+## Checkout (Async)
+
+Processes the checkout asynchronously. Returns immediately with `202 Accepted` and provides WebSocket subscription details to receive completion notifications.
+
+**Prerequisites:** Create a basket and add products via V1 (`POST /api/v1/shopping_basket/products`). Use the `Shopping-Basket-ID` header from the response or the basket UUID for the `Authorization` header.
+
+- **Endpoint:** `POST /shopping_basket/checkout`
+- **Headers:**
+  - `Authorization: Bearer <uuid>` (required)
+- **Parameters (JSON Body):**
+  ```json
+  {
+    "payment_token": "tok_success",
+    "email": "user@example.com",
+    "address": {
+      "line_1": "123 Main St",
+      "line_2": "Apt 4B",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001",
+      "country": "US"
+    }
+  }
+  ```
+  - `payment_token`: Use `tok_success` for successful payment simulation or `tok_fail` to simulate a decline.
+- **Example:**
+  ```bash
+  # 1. Create basket and add product (V1) - save Shopping-Basket-ID from response headers
+  curl -v -X POST "http://localhost:3000/api/v1/shopping_basket/products" \
+    -H "Content-Type: application/json" \
+    -d '{"product": {"product_id": 1, "quantity": 2}}'
+
+  # 2. Checkout (V2) - use basket UUID from step 1
+  curl -v -X POST "http://localhost:3000/api/v2/shopping_basket/checkout" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <uuid-from-step-1>" \
+    -d '{
+      "payment_token": "tok_success",
+      "email": "user@example.com",
+      "address": {
+        "line_1": "123 Main St",
+        "line_2": "Apt 4B",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10001",
+        "country": "US"
+      }
+    }'
+  ```
+- **Response:**
+  - **Status:** `202 Accepted`
+  - **Body:**
+    ```json
+    {
+      "message": "Checkout processing started",
+      "notifications": {
+        "channel": "CheckoutNotificationsChannel",
+        "params": {
+          "shopping_basket_id": "019c68f2-80b8-7179-b9c5-805060290f97"
+        }
+      }
+    }
+    ```
+  - **Fields:**
+    - `message`: Confirmation that checkout was queued
+    - `notifications`: Use this to subscribe to real-time updates via WebSocket
+
+### Checkout Notifications (WebSocket)
+
+Subscribe to receive checkout completion or failure in real time.
+
+- **WebSocket endpoint:** `ws://localhost:3000/cable` (replace host for other environments)
+- **Subscription:** Use the `notifications` object from the 202 response:
+
+  ```javascript
+  const { channel, params } = response.notifications;
+  consumer.subscriptions.create(
+    { channel, ...params },
+    { received: (data) => handleCheckoutResult(data) }
+  );
+  ```
+
+  Example: `{ channel: "CheckoutNotificationsChannel", shopping_basket_id: "01936e2a-..." }`
+
+- **Message formats:**
+
+  **Success (status: completed):**
+  ```json
+  {
+    "status": "completed",
+    "order": {
+      "id": "01936e2a-...",
+      "email": "user@example.com",
+      "total_price": { "cents": 2000, "currency": "USD" },
+      "order_products": [...]
+    }
+  }
+  ```
+  The `order` object matches V1 checkout response format.
+
+  **Failure (status: failed):**
+  ```json
+  {
+    "status": "failed",
+    "error": {
+      "code": "empty_basket",
+      "message": "No items available in stock."
+    }
+  }
+  ```
+  Error codes: `empty_basket`, `payment_required`
