@@ -14,7 +14,7 @@ module ShoppingBaskets
 
     def call
       credit_card = CreditCard.build_for_token(payment_token, payment_gateway:)
-      auth_result = authorize_payment!(shopping_basket.total_price.cents)
+      auth_result = authorize_payment!(shopping_basket.total_price.cents, credit_card.token)
 
       order = ActiveRecord::Base.transaction do
         credit_card.save!
@@ -39,11 +39,11 @@ module ShoppingBaskets
 
     attr_reader :shopping_basket, :email, :payment_token, :address_params, :payment_gateway, :order
 
-    def authorize_payment!(amount_cents)
+    def authorize_payment!(amount_cents, token)
       raise PaymentError, "Order must be pending or failed to authorize" unless order.pending? || order.failed?
 
       auth_result = payment_gateway.authorize(
-        token: payment_token,
+        token:,
         amount_cents:,
         currency: "USD"
       )
