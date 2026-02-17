@@ -7,7 +7,12 @@ module Api
         def create
           return render_checkout_already_processing if current_shopping_basket.order.present?
 
-          current_shopping_basket.build_order(status: :pending).save!
+          current_shopping_basket.build_order(
+            status: :pending,
+            email: checkout_params[:email],
+            total_price_cents: current_shopping_basket.total_price.cents,
+            total_price_currency: current_shopping_basket.total_price.currency
+          ).save!
           enqueue_checkout_job
           render json: checkout_response, status: :accepted
         rescue ActiveRecord::RecordNotUnique, PG::UniqueViolation
@@ -19,7 +24,6 @@ module Api
         def enqueue_checkout_job
           CheckoutOrderJob.perform_later(
             shopping_basket_id: current_shopping_basket.id,
-            email: checkout_params[:email],
             payment_token: checkout_params[:payment_token],
             address_params: address_params.to_h
           )

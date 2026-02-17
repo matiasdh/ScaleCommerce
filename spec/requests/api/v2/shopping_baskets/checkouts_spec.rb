@@ -48,14 +48,14 @@ RSpec.describe "Api::V2::ShoppingBaskets::Checkouts", type: :request do
         expect(order.status).to eq("pending")
       end
 
-      it "creates an order without total_price_cents, email, address, or credit_card" do
+      it "creates an order with email and total from basket, without address or credit_card" do
         allow(CheckoutOrderJob).to receive(:perform_later)
 
         post endpoint, params: valid_params, headers: headers
 
         order = basket.reload.order
-        expect(order.total_price_cents).to be_nil
-        expect(order.email).to be_nil
+        expect(order.total_price_cents).to eq(2000)
+        expect(order.email).to eq("test@example.com")
         expect(order.address_id).to be_nil
         expect(order.credit_card_id).to be_nil
       end
@@ -63,7 +63,6 @@ RSpec.describe "Api::V2::ShoppingBaskets::Checkouts", type: :request do
       it "enqueues CheckoutOrderJob with correct parameters" do
         expect(CheckoutOrderJob).to receive(:perform_later).with(
           shopping_basket_id: basket.id,
-          email: "test@example.com",
           payment_token: "tok_success",
           address_params: hash_including(
             "line_1" => "123 Calle Falsa",
