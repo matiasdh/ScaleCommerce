@@ -22,6 +22,7 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 |---|---|---|---|
 | **Checkout Flow** | Synchronous (blocks web worker) | Web workers blocked during payment processing, reducing throughput | Async via **Sidekiq** background jobs. Web workers free instantly, traffic spikes absorbed by the queue |
 | **Pagination** | Offset-based (`LIMIT/OFFSET` + `COUNT(*)`) | `COUNT(*)` does a full table scan. Offset degrades to O(n) on large datasets | **Keyset pagination**. Index-only access, constant time regardless of dataset size |
+| **Checkout Notifications** | N/A (sync checkout) | Async checkout returns `202 Accepted` with no follow-up — client has no way to know when processing completes | **ActionCable** WebSocket channel. 202 response includes subscription details; client receives real-time completion or failure notifications |
 
 ### Shipped in V1
 
@@ -40,7 +41,6 @@ This project follows an **iterative engineering approach**: V1 was built, load-t
 | Problem Area | Current Approach | Why It Matters | Planned Improvement |
 |---|---|---|---|
 | **Inventory Writes** | Pessimistic locking (`SELECT ... FOR UPDATE`) | DB-bound under write concurrency. Requests serialize and queue, causing p95 latency of **9.37s** at 200 users | Atomic SQL updates (`UPDATE ... WHERE stock >= ?`). Eliminates row-level lock contention |
-| **Checkout Notifications** | V2 returns `202 Accepted` with no follow-up | Client has no way to know when async checkout completes or fails | Real-time notifications via **ActionCable** (with **AnyCable** for production-grade WebSocket scaling) |
 | **User Sessions** | No authentication (anonymous baskets) | No persistent user identity — baskets are ephemeral and can't survive across devices or sessions | **Session-based authentication** with secure, stateful user sessions for persistent baskets and order history |
 | **Capacity** | ~150 concurrent users/node | 22% error rate at 1,000 users. Horizontal scaling alone would worsen DB contention | Target **250+ users/node** via atomic updates + read replicas for the 80% read traffic |
 
