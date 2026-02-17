@@ -72,7 +72,7 @@ RSpec.describe CheckoutOrderJob, type: :job do
           email: email,
           payment_token: payment_token,
           address_params: address_params
-        ).and_return(double(id: 1))
+        ).and_call_original
 
         described_class.perform_now(
           shopping_basket_id: basket.id,
@@ -91,6 +91,19 @@ RSpec.describe CheckoutOrderJob, type: :job do
             address_params: address_params
           )
         }.to change(Order, :count).by(1)
+      end
+
+      it "broadcasts completed status with order when service succeeds" do
+        expect {
+          described_class.perform_now(
+            shopping_basket_id: basket.id,
+            email: email,
+            payment_token: payment_token,
+            address_params: address_params
+          )
+        }.to have_broadcasted_to("checkout_#{basket.uuid}").with(
+          hash_including(status: "completed", order: hash_including("id", "email", "total_price", "order_products"))
+        )
       end
     end
 
@@ -138,6 +151,20 @@ RSpec.describe CheckoutOrderJob, type: :job do
         }.not_to raise_error
         expect(Rails.logger).to have_received(:error).with(/CheckoutOrderJob failed: Basket is empty/)
       end
+
+      it "broadcasts failed status with error" do
+        expect {
+          described_class.perform_now(
+            shopping_basket_id: basket.id,
+            email: email,
+            payment_token: payment_token,
+            address_params: address_params
+          )
+        }.to have_broadcasted_to("checkout_#{basket.uuid}").with(
+          status: "failed",
+          error: { code: "empty_basket", message: "Basket is empty" }
+        )
+      end
     end
 
     context "when checkout fails with PaymentError" do
@@ -157,6 +184,20 @@ RSpec.describe CheckoutOrderJob, type: :job do
           )
         }.not_to raise_error
         expect(Rails.logger).to have_received(:error).with(/CheckoutOrderJob payment failed: Insufficient funds/)
+      end
+
+      it "broadcasts failed status with error" do
+        expect {
+          described_class.perform_now(
+            shopping_basket_id: basket.id,
+            email: email,
+            payment_token: payment_token,
+            address_params: address_params
+          )
+        }.to have_broadcasted_to("checkout_#{basket.uuid}").with(
+          status: "failed",
+          error: { code: "payment_required", message: "Insufficient funds" }
+        )
       end
     end
 
